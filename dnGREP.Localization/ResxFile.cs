@@ -12,12 +12,12 @@ namespace dnGREP.Localization
     {
         private static readonly Logger logger = LogManager.GetCurrentClassLogger();
 
-        private readonly Dictionary<string, string> resources = new Dictionary<string, string>();
+        private readonly Dictionary<string, string> resources = new();
 
         public void ReadFile(string filePath)
         {
             resources.Clear();
-            IetfLanguateTag = string.Empty;
+            IetfLanguageTag = string.Empty;
 
             try
             {
@@ -27,7 +27,7 @@ namespace dnGREP.Localization
                     if (!string.IsNullOrEmpty(fileName))
                     {
                         int pos = fileName.IndexOf(".");
-                        if (pos < 0)
+                        if (pos < 0 && fileName.Contains("resourcesresx"))
                         {
                             // try the file name format used by Transifex downloads:
                             // for_use_dngrep-application_resourcesresx_he.resx
@@ -39,28 +39,39 @@ namespace dnGREP.Localization
                                 pos = fileName.IndexOf("_", pos);
                             }
                         }
+                        if (pos < 0)
+                        {
+                            // try the file name format used by Weblate downloads:
+                            // dngrep-dngrep-application-de.resx
+                            // dngrep-dngrep-application-zh_Hans.resx
+                            // dngrep-dngrep-application-zh_Hans (1).resx
+                            // get the last dash in the filename
+                            pos = fileName.LastIndexOf("-");
+                        }
                         if (pos > -1)
                         {
-                            var tag = fileName.Substring(pos + 1);
-                            if (!string.IsNullOrEmpty(tag) && tag.Contains("("))
+                            var tag = fileName[(pos + 1)..].Replace('_', '-');
+                            if (!string.IsNullOrEmpty(tag) && tag.Contains('('))
                             {
                                 // remove file numbers: 'he (1)'
                                 pos = tag.IndexOf("(");
                                 if (pos > -1)
                                 {
-                                    tag = tag.Substring(0, tag.Length - pos).Trim();
+                                    tag = tag[..pos].Trim();
                                 }
                             }
                             if (!string.IsNullOrEmpty(tag))
                             {
-                                IetfLanguateTag = tag;
+                                IetfLanguageTag = tag;
 
-                                using (ResXResourceReader rsxr = new ResXResourceReader(filePath))
+                                using ResXResourceReader rsxr = new(filePath);
+                                foreach (DictionaryEntry d in rsxr)
                                 {
-                                    // Iterate through the resources and display the contents to the console.
-                                    foreach (DictionaryEntry d in rsxr)
+                                    var key = d.Key.ToString();
+                                    var value = d.Value?.ToString();
+                                    if (key != null && value != null)
                                     {
-                                        resources.Add(d.Key.ToString(), d.Value.ToString());
+                                        resources.Add(key, value);
                                     }
                                 }
                             }
@@ -70,24 +81,24 @@ namespace dnGREP.Localization
                 else
                 {
                     MessageBox.Show(TranslationSource.Format(Properties.Resources.MessageBox_ResourcesFile0IsNotAResxFile, filePath),
-                        Properties.Resources.MessageBox_DnGrep + "  " + Properties.Resources.MessageBox_LoadResources, 
-                        MessageBoxButton.OK, MessageBoxImage.Error, 
+                        Properties.Resources.MessageBox_DnGrep + " " + Properties.Resources.MessageBox_LoadResources,
+                        MessageBoxButton.OK, MessageBoxImage.Error,
                         MessageBoxResult.OK, TranslationSource.Instance.FlowDirection);
                 }
             }
-            catch(Exception ex)
+            catch (Exception ex)
             {
                 logger.Error(ex, $"Failed to load resources file '{filePath}'");
                 MessageBox.Show(TranslationSource.Format(Properties.Resources.MessageBox_CouldNotLoadResourcesFile0, filePath) + ex.Message,
-                    Properties.Resources.MessageBox_DnGrep + "  " + Properties.Resources.MessageBox_LoadResources, 
+                    Properties.Resources.MessageBox_DnGrep + " " + Properties.Resources.MessageBox_LoadResources,
                     MessageBoxButton.OK, MessageBoxImage.Error,
                     MessageBoxResult.OK, TranslationSource.Instance.FlowDirection);
             }
         }
 
-        public bool IsValid => !string.IsNullOrEmpty(IetfLanguateTag) && resources.Count > 0;
+        public bool IsValid => !string.IsNullOrEmpty(IetfLanguageTag) && resources.Count > 0;
 
-        public string IetfLanguateTag { get; private set; } = string.Empty;
+        public string IetfLanguageTag { get; private set; } = string.Empty;
 
 
         public IDictionary<string, string> Resources => resources;

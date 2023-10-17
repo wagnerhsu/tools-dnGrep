@@ -17,6 +17,7 @@
                 <ResourceDictionary Source="pack://application:,,,/ThemedControls/Button.xaml" />
                 <ResourceDictionary Source="pack://application:,,,/ThemedControls/CheckBox.xaml" />
                 <ResourceDictionary Source="pack://application:,,,/ThemedControls/ComboBox.xaml" />
+                <ResourceDictionary Source="pack://application:,,,/ThemedControls/CompletionList.xaml" />
                 <ResourceDictionary Source="pack://application:,,,/ThemedControls/CustomTemplates.xaml" />
                 <ResourceDictionary Source="pack://application:,,,/ThemedControls/DataGrid.xaml" />
                 <ResourceDictionary Source="pack://application:,,,/ThemedControls/DatePicker.xaml" />
@@ -30,6 +31,7 @@
                 <ResourceDictionary Source="pack://application:,,,/ThemedControls/SearchPanel.xaml" />
                 <ResourceDictionary Source="pack://application:,,,/ThemedControls/StatusBar.xaml" />
                 <ResourceDictionary Source="pack://application:,,,/ThemedControls/ScrollViewer.xaml" />
+                <ResourceDictionary Source="pack://application:,,,/ThemedControls/MarkerScrollViewer.xaml" />
                 <ResourceDictionary Source="pack://application:,,,/ThemedControls/Slider.xaml" />
                 <ResourceDictionary Source="pack://application:,,,/ThemedControls/ToggleButton.xaml" />
                 <ResourceDictionary Source="pack://application:,,,/ThemedControls/TreeView.xaml" />

@@ -1,4 +1,4 @@
-﻿<?xml version="1.0" encoding="utf-8"?>
+<?xml version="1.0" encoding="utf-8"?>
 <root>
   <!-- 
     Microsoft ResX Schema 
@@ -59,7 +59,7 @@
             : using a System.ComponentModel.TypeConverter
             : and then encoded with base64 encoding.
     -->
-  <xsd:schema id="root" xmlns="" xmlns:xsd="http://www.w3.org/2001/XMLSchema" xmlns:msdata="urn:schemas-microsoft-com:xml-msdata">
+  <xsd:schema xmlns="" xmlns:xsd="http://www.w3.org/2001/XMLSchema" xmlns:msdata="urn:schemas-microsoft-com:xml-msdata" id="root">
     <xsd:import namespace="http://www.w3.org/XML/1998/namespace" />
     <xsd:element name="root" msdata:IsDataSet="true">
       <xsd:complexType>
@@ -139,7 +139,7 @@
     <value>Dateinsystem indizieren, lokale Dateien ersatzweise</value>
   </data>
   <data name="About_JsonFrameworkForNET" xml:space="preserve">
-    <value>Json Framework für .NET</value>
+    <value>JSON Framework für .NET</value>
   </data>
   <data name="About_LibraryForReadingArchiveFiles" xml:space="preserve">
     <value>Lese-Bibliothek für Archive Dateien</value>
@@ -164,9 +164,6 @@
   </data>
   <data name="About_NETLibraryToWorkWithWordAndExcelDocuments" xml:space="preserve">
     <value>.NET Bibliothek zur Verarbeitung von Word und Excel Dokumenten</value>
-  </data>
-  <data name="About_NETWPFScreenHelperUtility" xml:space="preserve">
-    <value>.NET WPF Bildschirm Hilfewerkzeuge</value>
   </data>
   <data name="About_NETWPFTextEditorComponent" xml:space="preserve">
     <value>.NET WPF Texteditor Komponenten</value>
@@ -241,10 +238,10 @@
     <value>Sternchenmuster</value>
   </data>
   <data name="BookmarkDetails_PatternType_Everything" xml:space="preserve">
-    <value>Alles</value>
+    <value>Everything</value>
   </data>
   <data name="BookmarkDetails_PatternType_Regex" xml:space="preserve">
-    <value>_Regex</value>
+    <value>_Regulären Ausdruck</value>
   </data>
   <data name="BookmarkDetails_ReplaceWith" xml:space="preserve">
     <value>Ersetze mit:</value>
@@ -256,7 +253,7 @@
     <value>Suche in Archiven</value>
   </data>
   <data name="BookmarkDetails_SearchType_Hex" xml:space="preserve">
-    <value>Hex</value>
+    <value>Byte</value>
   </data>
   <data name="BookmarkDetails_SearchType_Phonetic" xml:space="preserve">
     <value>Phonetisch</value>
@@ -271,7 +268,7 @@
     <value>Lese Dateien binär und suche nach Bytes im hexadezimal Format: 68 65 78 20</value>
   </data>
   <data name="BookmarkDetails_SearchType_Regex" xml:space="preserve">
-    <value>_Regex</value>
+    <value>_Regulären Ausdruck</value>
   </data>
   <data name="BookmarkDetails_SearchType_RegularExpressionSearch" xml:space="preserve">
     <value>Suche mit regulären Ausdrücken</value>
@@ -372,100 +369,143 @@
   <data name="Bookmarks_Use" xml:space="preserve">
     <value>_Anwenden</value>
   </data>
-  <data name="Help_CmdLine" xml:space="preserve">
-    <value>dnGrep: Durchsucht Textdateien, Word- und Excel-Dokumente, PDFs und Archive mit Hilfe von Text, regulären Ausdrücken, XPath und phonetischen Abfragen.
-
-Version {0} aufbauend auf {1}
-
-Verwendung:
-
-dnGrep [Argumente]
-Mit einer beliebigen Kombination von Argumenten aus der folgenden Liste.
-Beispiel:
-dnGrep /f "C:\Programme\dnGrep" /pm *.txt;*.xml /s t\w*t /st Regex
-
-dnGrep [folderPath] [searchFor]
-Ein oder zwei Argumente ohne Flags: Das erste Argument ist der zu durchsuchende Ordner, das zweite der reguläre Ausdruck, nach dem gesucht werden soll.
-Beispiel:
-dnGrep "C:\Programmdateien\dnGrep" t\w*t
-
-Wenn keine Argumente angegeben werden, werden die zuletzt gespeicherten Benutzereinstellungen verwendet.
-
-Argumente:
-
-/f [folderPath]
--f [folderPath]
--folder [folderPath]
-    Legt den zu durchsuchenden Ordnerpfad fest. Kann eine durch Komma oder Semikolon getrennte Liste von Ordnerpfaden sein.
-
-/pm [pattern]
--pm [pattern]
--pathToMatch [pattern]
-    Legt das Muster für den Dateinamen fest, der mit den Dateien im Suchpfad übereinstimmen soll. Kann eine durch Komma oder Semikolon getrennte Liste von Mustern sein.
-
-/pi [pattern]
--pi [pattern]
--pathToIgnore [pattern]
-    Legt das Muster für den Datei- oder Verzeichnisnamen fest, um Dateien oder Ordner im Suchpfad auszuschließen. Kann eine durch Komma oder Semikolon getrennte Liste von Mustern sein.
-
-/pt [type]
--pt [type]
--patternType [type]
-    Legt den Typ des Übereinstimmungs- und Ignoriermusters fest - muss einer der folgenden sein: Asterisk, Regex oder Everything (wenn das Suchwerkzeug Everything installiert ist).
-
-/s [searchFor]
--s [searchFor]
--searchFor [searchFor]
-    Legt das Muster oder den Text fest, nach dem innerhalb der Dateimenge gesucht werden soll. Wenn dieses Argument gesetzt ist, wird die Suche automatisch ausgeführt.
-
-/st [type]
--st [type]
--searchType [type]
-    Legt den Typ der Suche fest - muss einer der folgenden sein: PlainText, Regex, XPath, oder Soundex.
-
-/cs [True/False]
--cs [True/False]
--caseSensitive [True/False]
-    Setzt das Suchflag für Groß- und Kleinschreibung - Wahr oder Falsch.
-
-/ww [True/False]
--ww [True/False]
--wholeWord [True/False]
-    Setzt das Flag für die Suche nach ganzen Wörtern - Wahr oder Falsch.
-
-/ml [True/False]
--ml [True/False]
--multiline [True/False]
-    Setzt das Flag für die mehrzeilige Suche - Wahr oder Falsch.
-
-/dn [True/False]
--dn [True/False]
--dotAsNewline [True/False]
-    Setzt das Suchflag "Punkt als neue Zeile" - Wahr oder Falsch.
-
-/bo [True/False]
+  <data name="Help_CmdLineArguments" xml:space="preserve">
+    <value>Parameter:</value>
+    <comment>Help dialog text when running dnGrep from the command-line</comment>
+  </data>
+  <data name="Help_CmdLineBooleanOperators" xml:space="preserve">
+    <value>/bo [True/False]
 -bo [True/False]
 -booleanOperators [True/False]
-    Setzt das Suchflag für Boolesche Operatoren - Wahr oder Falsch.
-
-/rpt [filePath]
--rpt [filePath]
--report [filePath]
-    Erstellt nach Abschluss der Suche eine Ergebnisdatei im Berichtsformat.
-
-/txt [filePath]
--txt [filePath]
--text [filePath]
-    Erstellt nach Abschluss der Suche eine Ergebnisdatei im Textformat.
-
-/csv [filePath]
+    Setzt das Suchflag für Boolesche Operatoren - Wahr oder Falsch.</value>
+    <comment>Help dialog text when running dnGrep from the command-line</comment>
+  </data>
+  <data name="Help_CmdLineCaseSensitive" xml:space="preserve">
+    <value>/cs [True/False]
+-cs [True/False]
+-caseSensitive [True/False]
+    Setzt das Suchflag für Groß- und Kleinschreibung - Wahr oder Falsch.</value>
+    <comment>Help dialog text when running dnGrep from the command-line</comment>
+  </data>
+  <data name="Help_CmdLineCSVReport" xml:space="preserve">
+    <value>/csv [filePath]
 -csv [filePath]
-    Erstellt nach Abschluss der Suche eine Ergebnisdatei im CSV-Format.
-
-/x
+    Erstellt nach Abschluss der Suche eine Ergebnisdatei im CSV-Format.</value>
+    <comment>Help dialog text when running dnGrep from the command-line</comment>
+  </data>
+  <data name="Help_CmdLineDefaultArguments" xml:space="preserve">
+    <value>Sind keine Parameter angegeben, werden die zuletzt gespeicherten Benutzereinstellungen verwendet.</value>
+    <comment>Help dialog text when running dnGrep from the command-line</comment>
+  </data>
+  <data name="Help_CmdLineDotAsNewline" xml:space="preserve">
+    <value>/dn [True/False]
+-dn [True/False]
+-dotAsNewline [True/False]
+    Setzt das Suchflag "Punkt als neue Zeile" - Wahr oder Falsch.</value>
+    <comment>Help dialog text when running dnGrep from the command-line</comment>
+  </data>
+  <data name="Help_CmdLineExample1" xml:space="preserve">
+    <value>dnGrep [Parameter]
+Mit einer beliebigen Kombination von Parametern aus der folgenden Liste.
+Beispiel:
+dnGrep /f "C:\Programme\dnGrep" /pm *.txt;*.xml /s t\w*t /st Regex</value>
+    <comment>Help dialog text when running dnGrep from the command-line</comment>
+  </data>
+  <data name="Help_CmdLineExample2" xml:space="preserve">
+    <value>dnGrep [Verzeichnispfad] [Suchausdruck]
+Ein oder zwei Parameter ohne Flags: Der erste Parameter ist der zu durchsuchende Ordner, der zweite der reguläre Ausdruck nach dem gesucht werden soll.
+Beispiel:
+dnGrep "C:\Programme\dnGrep" t\w*t</value>
+    <comment>Help dialog text when running dnGrep from the command-line</comment>
+  </data>
+  <data name="Help_CmdLineExit" xml:space="preserve">
+    <value>/x
 -x
 -exit
     Beendet dnGrep, nachdem die Befehlszeilenoperationen abgeschlossen sind.</value>
+    <comment>Help dialog text when running dnGrep from the command-line</comment>
+  </data>
+  <data name="Help_CmdLineFolder" xml:space="preserve">
+    <value>/f [folderPath]
+-f [folderPath]
+-folder [folderPath]
+    Legt den zu durchsuchenden Ordnerpfad fest. Kann eine durch Komma oder Semikolon getrennte Liste von Ordnerpfaden sein.</value>
+    <comment>Help dialog text when running dnGrep from the command-line</comment>
+  </data>
+  <data name="Help_CmdLineHeader" xml:space="preserve">
+    <value>dnGrep: Durchsucht Textdateien, Word- und Excel-Dokumente, PDFs und Archive mit Hilfe von Text, regulären Ausdrücken, XPath und phonetischen Abfragen.</value>
+    <comment>Help dialog text when running dnGrep from the command-line</comment>
+  </data>
+  <data name="Help_CmdLineMultiline" xml:space="preserve">
+    <value>/ml [True/False]
+-ml [True/False]
+-multiline [True/False]
+    Setzt das Flag für die mehrzeilige Suche - Wahr oder Falsch.</value>
+    <comment>Help dialog text when running dnGrep from the command-line</comment>
+  </data>
+  <data name="Help_CmdLinePathToIgnore" xml:space="preserve">
+    <value>/pi [pattern]
+-pi [pattern]
+-pathToIgnore [pattern]
+    Legt das Muster für den Datei- oder Verzeichnisnamen fest, um Dateien oder Ordner im Suchpfad auszuschließen. Kann eine durch Komma oder Semikolon getrennte Liste von Mustern sein.</value>
+    <comment>Help dialog text when running dnGrep from the command-line</comment>
+  </data>
+  <data name="Help_CmdLinePathToMatch" xml:space="preserve">
+    <value>/pm [pattern]
+-pm [pattern]
+-pathToMatch [pattern]
+    Legt das Muster für den Dateinamen fest, der mit den Dateien im Suchpfad übereinstimmen soll. Kann eine durch Komma oder Semikolon getrennte Liste von Mustern sein.</value>
+    <comment>Help dialog text when running dnGrep from the command-line</comment>
+  </data>
+  <data name="Help_CmdLinePatternType" xml:space="preserve">
+    <value>/pt [type]
+-pt [type]
+-patternType [type]
+    Legt den Typ des Übereinstimmungs- und Ignoriermusters fest - muss einer der folgenden sein: Asterisk, Regex oder Everything (wenn das Suchwerkzeug Everything installiert ist).</value>
+    <comment>Help dialog text when running dnGrep from the command-line</comment>
+  </data>
+  <data name="Help_CmdLineReport" xml:space="preserve">
+    <value>/rpt [filePath]
+-rpt [filePath]
+-report [filePath]
+    Erstellt nach Abschluss der Suche eine Ergebnisdatei im Berichtsformat.</value>
+    <comment>Help dialog text when running dnGrep from the command-line</comment>
+  </data>
+  <data name="Help_CmdLineSearchFor" xml:space="preserve">
+    <value>/s [searchFor]
+-s [searchFor]
+-searchFor [searchFor]
+    Legt das Muster oder den Text fest, nach dem innerhalb der Dateimenge gesucht werden soll. Wenn dieses Argument gesetzt ist, wird die Suche automatisch ausgeführt.</value>
+    <comment>Help dialog text when running dnGrep from the command-line</comment>
+  </data>
+  <data name="Help_CmdLineSearchType" xml:space="preserve">
+    <value>/st [type]
+-st [type]
+-searchType [type]
+    Legt den Typ der Suche fest - muss einer der folgenden sein: PlainText, Regex, XPath, oder Soundex.</value>
+    <comment>Help dialog text when running dnGrep from the command-line</comment>
+  </data>
+  <data name="Help_CmdLineTextReport" xml:space="preserve">
+    <value>/txt [filePath]
+-txt [filePath]
+-text [filePath]
+    Erstellt nach Abschluss der Suche eine Ergebnisdatei im Textformat.</value>
+    <comment>Help dialog text when running dnGrep from the command-line</comment>
+  </data>
+  <data name="Help_CmdLineUsage" xml:space="preserve">
+    <value>Verwendung:</value>
+    <comment>Help dialog text when running dnGrep from the command-line</comment>
+  </data>
+  <data name="Help_CmdLineVersion" xml:space="preserve">
+    <value>Version {0} aufbauend auf {1}</value>
+    <comment>Help dialog text when running dnGrep from the command-line: 0 is the installed dnGrep version number; 1 is the installed dnGrep build date</comment>
+  </data>
+  <data name="Help_CmdLineWholeWord" xml:space="preserve">
+    <value>/ww [True/False]
+-ww [True/False]
+-wholeWord [True/False]
+    Setzt das Flag für die Suche nach ganzen Wörtern - Wahr oder Falsch.</value>
+    <comment>Help dialog text when running dnGrep from the command-line</comment>
   </data>
   <data name="Help_DnGrepHelp" xml:space="preserve">
     <value>dnGrep Hilfe</value>
@@ -474,7 +514,7 @@ Argumente:
     <value>OK</value>
   </data>
   <data name="Help_OneOrMoreArgumentsAreInvalid" xml:space="preserve">
-    <value>Ein oder mehre Argumente sind falsch.</value>
+    <value>Einer oder mehre Parameter sind nicht korrekt.</value>
   </data>
   <data name="Main_AddSearchPatternToBookmarks" xml:space="preserve">
     <value>Suchmuster-Lesezeichen hinzufügen</value>
@@ -642,7 +682,7 @@ Argumente:
     <value>Fundstellen hervorheben</value>
   </data>
   <data name="Main_HighlightRegularExpressionGroups" xml:space="preserve">
-    <value>Gruppen von Regulären Ausdrücken hervorheben - Änderungen werden bei der nächsten Suche übernommen</value>
+    <value>Gruppen von Regulären Ausdrücken hervorheben - Änderungen werden bei der nächsten Suche übernommen.</value>
   </data>
   <data name="Main_IncludeBinaryFiles" xml:space="preserve">
     <value>Binärdateien einschliessen</value>
@@ -657,22 +697,22 @@ Argumente:
     <value>Unterverzeichnisse einschliessen</value>
   </data>
   <data name="Main_MaxDepth" xml:space="preserve">
-    <value>Maximal Tiefe</value>
+    <value>Maximale Tiefe</value>
   </data>
   <data name="Main_Menu_About" xml:space="preserve">
     <value>_Über</value>
   </data>
   <data name="Main_Menu_About_AboutDnGrep" xml:space="preserve">
-    <value>_Über dnGrep...</value>
+    <value>_Über dnGrep…</value>
   </data>
   <data name="Main_Menu_About_Help" xml:space="preserve">
     <value>_Hilfe</value>
   </data>
   <data name="Main_Menu_Bookmarks" xml:space="preserve">
-    <value>_Lesezeichen...</value>
+    <value>_Lesezeichen…</value>
   </data>
   <data name="Main_Menu_Options" xml:space="preserve">
-    <value>_Optionen...</value>
+    <value>_Optionen…</value>
   </data>
   <data name="Main_Menu_Undo" xml:space="preserve">
     <value>_Zurücknehmen</value>
@@ -681,25 +721,25 @@ Argumente:
     <value>geändert</value>
   </data>
   <data name="Main_More" xml:space="preserve">
-    <value>M_ehr...</value>
+    <value>M_ehr…</value>
   </data>
   <data name="Main_MoreArrowButton" xml:space="preserve">
-    <value>_Mehr ⏷</value>
+    <value>_Mehr</value>
   </data>
   <data name="Main_MoreMenu_CopyFileNames" xml:space="preserve">
     <value>Dateinname kopieren</value>
   </data>
   <data name="Main_MoreMenu_CopyFiles" xml:space="preserve">
-    <value>Datei kopieren...</value>
+    <value>Datei kopieren…</value>
   </data>
   <data name="Main_MoreMenu_CopyResults" xml:space="preserve">
     <value>Ergebnis kopieren</value>
   </data>
   <data name="Main_MoreMenu_DeleteFiles" xml:space="preserve">
-    <value>Datei löschen...</value>
+    <value>Datei löschen…</value>
   </data>
   <data name="Main_MoreMenu_MoveFiles" xml:space="preserve">
-    <value>Datei verschieben...</value>
+    <value>Datei verschieben…</value>
   </data>
   <data name="Main_MoreMenu_Save_CSVResults" xml:space="preserve">
     <value>CSV Ergebnisse</value>
@@ -717,7 +757,7 @@ Argumente:
     <value>_Mehrzeilig</value>
   </data>
   <data name="Main_OpenFolder" xml:space="preserve">
-    <value>...</value>
+    <value>…</value>
   </data>
   <data name="Main_PastDateTo" xml:space="preserve">
     <value>zu</value>
@@ -735,7 +775,7 @@ Argumente:
     <value>Alles</value>
   </data>
   <data name="Main_PatternType_Regex" xml:space="preserve">
-    <value>_Regex</value>
+    <value>_Regulären Ausdruck</value>
   </data>
   <data name="Main_PreviewFile" xml:space="preserve">
     <value>Datei_vorschau</value>
@@ -759,7 +799,7 @@ Argumente:
     <value>Ergebnis Dateiformat</value>
   </data>
   <data name="Main_ResetOptions" xml:space="preserve">
-    <value>Zurücksetzen</value>
+    <value>Filter zurücksetzen</value>
   </data>
   <data name="Main_ResultList_AdditionalMatches" xml:space="preserve">
     <value>zusätzliche Muster:</value>
@@ -783,7 +823,7 @@ Argumente:
     <value>Übereinstimmung {0}{1}{2}</value>
   </data>
   <data name="Main_ResultList_MatchToolTip2" xml:space="preserve">
-    <value>Überienstimmung {0}{1}Gruppe {2}:   {3}</value>
+    <value>Überienstimmung {0}{1}Gruppe {2}: {3}</value>
   </data>
   <data name="Main_ResultList_PlusCountMoreMatches" xml:space="preserve">
     <value>, +{0} mehre Fundstellen</value>
@@ -837,7 +877,7 @@ Argumente:
     <value>Dateieigenschaften zeigen</value>
   </data>
   <data name="Main_SavingResultsToFile" xml:space="preserve">
-    <value>sichere Ergebnis in eine Datei...</value>
+    <value>sichere Ergebnis in eine Datei…</value>
   </data>
   <data name="Main_SearchButton" xml:space="preserve">
     <value>_Suche</value>
@@ -864,7 +904,7 @@ Argumente:
     <value>Suche paralle_l</value>
   </data>
   <data name="Main_SearchType_Hex" xml:space="preserve">
-    <value>Hex</value>
+    <value>Byte</value>
   </data>
   <data name="Main_SearchType_Phonetic" xml:space="preserve">
     <value>Phonetisch</value>
@@ -879,7 +919,7 @@ Argumente:
     <value>Lese Dateien binär und suche nach Bytes im hexadezimal Format: 68 65 78 20</value>
   </data>
   <data name="Main_SearchType_Regex" xml:space="preserve">
-    <value>_Regex</value>
+    <value>_Regulären Ausdruck</value>
   </data>
   <data name="Main_SearchType_RegularExpressionSearch" xml:space="preserve">
     <value>Suche mit regulären Ausdrücken</value>
@@ -948,19 +988,16 @@ Argumente:
     <value>Ersetzen abgeschlossen - {0} Dateien bearbeitet.</value>
   </data>
   <data name="Main_Status_ReplaceFailed" xml:space="preserve">
-    <value>Ersetzen fehlerhaft.</value>
+    <value>Ersetzen fehlgeschlagen</value>
   </data>
   <data name="Main_Status_Replacing" xml:space="preserve">
-    <value>Ersetzen...</value>
+    <value>Ersetzen…</value>
   </data>
   <data name="Main_Status_SearchCanceled" xml:space="preserve">
     <value>Suche abbrechen</value>
   </data>
   <data name="Main_Status_SearchCanceledOrFailed" xml:space="preserve">
     <value>Suche abgebrochen oder fehlerhaft</value>
-  </data>
-  <data name="Main_Status_SearchCompleteSearched0FilesFound1FilesIn2" xml:space="preserve">
-    <value>Suche abgeschlossen - Durchsucht {0} Dateien. Gefunden {1} Dateien in {2}.</value>
   </data>
   <data name="Main_Status_Searched0FilesFound1MatchingFiles" xml:space="preserve">
     <value>Durchsucht {0} Dateien. Gefunden {1} passende Dateien.</value>
@@ -969,7 +1006,7 @@ Argumente:
     <value>Durchsucht {0} Dateien. Gefunden {1} passende Dateien - Verarbeitung {2}</value>
   </data>
   <data name="Main_Status_Searching" xml:space="preserve">
-    <value>Durchsuche...</value>
+    <value>Durchsuche…</value>
   </data>
   <data name="Main_Status_SearchingForGitignore" xml:space="preserve">
     <value>Suche nach .gitignore</value>
@@ -993,28 +1030,28 @@ Argumente:
     <value>benutze .gitignore zur Dateifilterung</value>
   </data>
   <data name="Main_Validation_HexStringIsNotValid" xml:space="preserve">
-    <value>Hex Zeichen ist nicht gültig</value>
+    <value>Byte-Zeichenfolge ist ungültig!</value>
   </data>
   <data name="Main_Validation_HexStringIsOK" xml:space="preserve">
-    <value>Hex Zeichen ist OK</value>
+    <value>Byte zeichenfolge ist OK</value>
   </data>
   <data name="Main_Validation_RegexIsNotValid" xml:space="preserve">
-    <value>Regex ist nicht gültig!</value>
+    <value>Regulärer Ausdruck ist nicht gültig!</value>
   </data>
   <data name="Main_Validation_RegexIsOK" xml:space="preserve">
-    <value>Regex ist OK!</value>
+    <value>Regulärer Ausdruck ist OK</value>
   </data>
   <data name="Main_Validation_XPathIsNotValid" xml:space="preserve">
     <value>XPtah ist nicht gültig!</value>
   </data>
   <data name="Main_Validation_XPathIsOK" xml:space="preserve">
-    <value>XPath ist OK!</value>
+    <value>XPath ist OK</value>
   </data>
   <data name="Main_WholeWord" xml:space="preserve">
     <value>_Ganze Wörter</value>
   </data>
   <data name="Main_WindowTitle" xml:space="preserve">
-    <value>{0} in "{1}" - dnGREP</value>
+    <value>{0} in "{1}" - dnGrep</value>
   </data>
   <data name="Main_WrapText" xml:space="preserve">
     <value>Textumbruch</value>
@@ -1098,7 +1135,7 @@ Argumente:
     <value>Neue Version</value>
   </data>
   <data name="MessageBox_NewVersionOfDnGREP0IsAvailableForDownload" xml:space="preserve">
-    <value>Neue Version von dnGREP ({0}) steht bereit für den Download.</value>
+    <value>Neue Version von dnGrep ({0}) steht bereit für den Download.</value>
   </data>
   <data name="MessageBox_PleaseSelectAnotherDirectoryAndTryAgain" xml:space="preserve">
     <value>Bitte ein anderes Verzeichnis wählen und erneut versuchen.</value>
@@ -1125,7 +1162,7 @@ Argumente:
     <value>Starte dnGrep als Administrator zur Aktivierung der Ansicht von dnGrep im Explorer Context Menu</value>
   </data>
   <data name="MessageBox_RunDnGrepAsAdministratorToChangeStartupRegister" xml:space="preserve">
-    <value>Starte dnGrep als Administrator zur Änderung der Startup Parameter</value>
+    <value>Starte dnGrep als Administrator zur Änderung der Startup-Parameter.</value>
   </data>
   <data name="MessageBox_SearchFailedError" xml:space="preserve">
     <value>Fehler beim Suchen, für Details siehe Fehlerprotokoll: </value>
@@ -1149,7 +1186,7 @@ Argumente:
     <value>Die Datei '{0}' existiert bereits in {1}, überschreiben?</value>
   </data>
   <data name="MessageBox_TheFilePattern0IsNotAValidRegularExpression12" xml:space="preserve">
-    <value>Das Datei Suchmuster '{0}' ist kein gültiger Rregulärer Ausdruck{1}{2}</value>
+    <value>Das Datei Suchmuster '{0}' ist kein gültiger Regulärer Ausdruck{1}{2}</value>
   </data>
   <data name="MessageBox_TheFollowingPluginsFailedToLoad" xml:space="preserve">
     <value>Die folgende Erweiterung konnte nicht geladen werden:</value>
@@ -1188,10 +1225,10 @@ Argumente:
     <value>Fehler beim Deaktivieren des Autostarts , für Details siehe Fehlerprotokoll: </value>
   </data>
   <data name="MessageBox_ThisBookmarkIsAssociatedWith0OtherFolders" xml:space="preserve">
-    <value>Diese Lesezeichen ist verknüpft mit {0} anderen Verzeichnissen:</value>
+    <value>Dieses Lesezeichen ist mit {0} anderen Verzeichnissen verknüpft.</value>
   </data>
   <data name="MessageBox_ThisBookmarkIsAssociatedWithOneOtherFolder" xml:space="preserve">
-    <value>Diese Lesezeichen ist verknüpft mit einem anderen Verzeichniss</value>
+    <value>Dieses Lesezeichen ist mit einem anderen Verzeichnis verknüpft.</value>
   </data>
   <data name="MessageBox_Undo" xml:space="preserve">
     <value>Rückgängig machen</value>
@@ -1217,32 +1254,23 @@ Argumente:
   <data name="Options_ApplicationFonts" xml:space="preserve">
     <value>Schriftarten</value>
   </data>
-  <data name="Options_ArchiveAdd" xml:space="preserve">
-    <value>Hinzufügen:</value>
-  </data>
-  <data name="Options_ArchiveDefault" xml:space="preserve">
-    <value>Voreinstellung:</value>
-  </data>
   <data name="Options_ArchiveExtensions" xml:space="preserve">
     <value>Erweiterungen:</value>
   </data>
   <data name="Options_ArchiveOptions" xml:space="preserve">
     <value>Archiv Suche</value>
   </data>
-  <data name="Options_ArchiveRemove" xml:space="preserve">
-    <value>Entfernen:</value>
-  </data>
   <data name="Options_BrowseFileLocation" xml:space="preserve">
-    <value>...</value>
+    <value>…</value>
   </data>
   <data name="Options_CheckDays" xml:space="preserve">
     <value>Tage</value>
   </data>
   <data name="Options_CheckForUpdatesWhenWindowsStarts" xml:space="preserve">
-    <value>Beim Windowsstart auf Update prüfen</value>
+    <value>Beim start von Windows auf Updates prüfen</value>
   </data>
   <data name="Options_CheckingForUpdates" xml:space="preserve">
-    <value>Auf Update prüfen</value>
+    <value>Aktualisierungen</value>
   </data>
   <data name="Options_ClearOldSearches" xml:space="preserve">
     <value>Alte Suchvorgänge löschen</value>
@@ -1254,10 +1282,10 @@ Argumente:
     <value>Dateivergleich</value>
   </data>
   <data name="Options_CompareArguments" xml:space="preserve">
-    <value>Argumente</value>
+    <value>Parameter</value>
   </data>
   <data name="Options_CompareCommand" xml:space="preserve">
-    <value>Kommando</value>
+    <value>Befehlszeile</value>
   </data>
   <data name="Options_ContextAfter" xml:space="preserve">
     <value>danach</value>
@@ -1269,7 +1297,7 @@ Argumente:
     <value>externer Editor</value>
   </data>
   <data name="Options_CustomEditorHelp" xml:space="preserve">
-    <value>Verwenden Sie die Schlüsselwörter '{0}' für den Speicherort der Datei, '{1}' für die Zeilennummer, '{2}' für das Suchmuster, '{3}' für den ersten übereinstimmenden Text in der Zeile und '{4}' für die Spaltennummer der ersten Übereinstimmung in der Zeile.</value>
+    <value>Verwenden Sie die Schlüsselwörter '{0}' für den Speicherort der Datei, '{5}' für die Seitennummer, '{1}' für die Zeilennummer, '{2}' für das Suchmuster, '{3}' für den ersten übereinstimmenden Text in der Zeile und '{4}' für die Spaltennummer der ersten Übereinstimmung in der Zeile.</value>
   </data>
   <data name="Options_DetectFileEncodingWhenSearchingForFileNamePatternOnly" xml:space="preserve">
     <value>Erkennung der Dateikodierung, nur wenn nach Dateinamensmustern gesucht wird</value>
@@ -1281,25 +1309,25 @@ Argumente:
     <value>dnGrep fügt die ausgewählten Dateien an das Ende der Befehlszeile an.</value>
   </data>
   <data name="Options_EditorArguments" xml:space="preserve">
-    <value>Argumente</value>
+    <value>Parameter</value>
   </data>
   <data name="Options_EditorCommand" xml:space="preserve">
-    <value>Kommando</value>
+    <value>Befehlszeile</value>
   </data>
   <data name="Options_EnableAutomaticCheckingEvery" xml:space="preserve">
-    <value>Aktiviert die automatische Prüfung alle</value>
+    <value>Automatisch überprüfen alle</value>
   </data>
   <data name="Options_EnablesStartingDnGrepFromTheWindowsExplorerRightClickContextMenu" xml:space="preserve">
     <value>Aktiviert dnGrep im Windows Explorer Context Menu.</value>
   </data>
   <data name="Options_FollowWindowsTheme" xml:space="preserve">
-    <value>Angepasst am Windows Theme</value>
+    <value>Dem Windows-Theme folgen</value>
   </data>
   <data name="Options_FontFamily" xml:space="preserve">
-    <value>Schriftartenfamilie</value>
+    <value>Schriftart</value>
   </data>
   <data name="Options_HelpTranslateDnGrep" xml:space="preserve">
-    <value>Hilfe beim dnGrep-Übersetzten.</value>
+    <value>Helfen Sie beim Übersetzten von dnGrep.</value>
   </data>
   <data name="Options_HistoryLists" xml:space="preserve">
     <value>Historie Anzeige</value>
@@ -1323,13 +1351,13 @@ Argumente:
     <value>Layout</value>
   </data>
   <data name="Options_LoadFromFile" xml:space="preserve">
-    <value>von Datei laden...</value>
+    <value>von Datei laden…</value>
   </data>
   <data name="Options_MainFontSize" xml:space="preserve">
     <value>Hauptschriftgröße</value>
   </data>
   <data name="Options_MatchEverythingToExactMatch" xml:space="preserve">
-    <value>0 - unscharfe Suche;  1.0 - genaue Suche</value>
+    <value>0 - unscharfe Suche; 1.0 - genaue Suche</value>
   </data>
   <data name="Options_MatchThreshold" xml:space="preserve">
     <value>Such-Schwelle (von 0 bis 1.0)</value>
@@ -1355,12 +1383,6 @@ Argumente:
   <data name="Options_PhoneticSearch" xml:space="preserve">
     <value>Phonetische Suche</value>
   </data>
-  <data name="Options_PluginAdd" xml:space="preserve">
-    <value>Hinzufügen:</value>
-  </data>
-  <data name="Options_PluginDefault" xml:space="preserve">
-    <value>Voreinstellung:</value>
-  </data>
   <data name="Options_PluginEnabled" xml:space="preserve">
     <value>Aktiviert</value>
   </data>
@@ -1370,9 +1392,6 @@ Argumente:
   <data name="Options_PluginOptions" xml:space="preserve">
     <value>Plugin Optionen</value>
   </data>
-  <data name="Options_PluginRemove" xml:space="preserve">
-    <value>Entfernen:</value>
-  </data>
   <data name="Options_PressF1ForHelpOnOptions" xml:space="preserve">
     <value>F1 für Hilfe</value>
   </data>
@@ -1380,7 +1399,7 @@ Argumente:
     <value>Vorschautool für Übersetzer</value>
   </data>
   <data name="Options_RegexOptions" xml:space="preserve">
-    <value>Regex Optionen</value>
+    <value>Reguläre Ausdrücke</value>
   </data>
   <data name="Options_Reload" xml:space="preserve">
     <value>neu laden</value>
@@ -1404,7 +1423,7 @@ Argumente:
     <value>Theme wählen</value>
   </data>
   <data name="Options_ShowDnGrepInExplorerRightClickMenu" xml:space="preserve">
-    <value>zeige dnGrep im Explorer Context Menu</value>
+    <value>dnGrep zum Explorer Context-Menü hinzufügen</value>
   </data>
   <data name="Options_ShowFileInfoToolTips" xml:space="preserve">
     <value>zeige Dateiinfo ToolTips</value>
@@ -1419,7 +1438,7 @@ Argumente:
     <value>zeige Ergebnisbaum ausführlich</value>
   </data>
   <data name="Options_ShowSearchOptions" xml:space="preserve">
-    <value>zeige Suchoptionen:</value>
+    <value>Zeige Suchoptionen</value>
   </data>
   <data name="Options_ShowVerboseMatchCount" xml:space="preserve">
     <value>zeige Anzahl der Übereinstimmungen</value>
@@ -1506,7 +1525,7 @@ Argumente:
     <value>Fehler: die ist eine binäre Datei</value>
   </data>
   <data name="Replace_FileNumberOfCountName" xml:space="preserve">
-    <value>Datei {0} von {1}: {2}  ({3} Suchermuster passt bei  {4} Zeilen)</value>
+    <value>Datei {0} von {1}: {2} ({3} Suchermuster passt bei {4} Zeilen)</value>
   </data>
   <data name="Replace_Files" xml:space="preserve">
     <value>Dateien</value>
@@ -1545,7 +1564,7 @@ Argumente:
     <value>[Schreibgeschützt]</value>
   </data>
   <data name="Replace_ReplaceAllMatchesInAllFilesAndApply" xml:space="preserve">
-    <value>Ersetze aller Fundstellen in allen Dateien [F10]</value>
+    <value>Ersetze alle Funde in allen Dateien [F10]</value>
   </data>
   <data name="Replace_ReplaceButton" xml:space="preserve">
     <value>_Ersetze</value>
@@ -1590,7 +1609,7 @@ Argumente:
     <value>Nicht</value>
   </data>
   <data name="Replace_ThisFileContainsTooManyMatchesForIndividualReplace" xml:space="preserve">
-    <value>Diese Datei enthält zu viele Fundstellen für eine einzelne Ersetzung. Um Alle zu ersetzen, klicken Sie auf 'Ersetze in der Datei'</value>
+    <value>Diese Datei enthält zu viele Fundstellen für eine einzelne Ersetzung. Um Alle zu ersetzen, klicken Sie auf 'Ersetze in der Datei'.</value>
   </data>
   <data name="Replace_Title" xml:space="preserve">
     <value>Text ersetzen</value>
@@ -1650,7 +1669,7 @@ Argumente:
     <value>Datei Suchmuster:</value>
   </data>
   <data name="ReportSummary_MaxFolderDepth" xml:space="preserve">
-    <value>Maximale Verzeichnistiefe {0}</value>
+    <value>Maximale Verzeichnistiefe: {0}</value>
   </data>
   <data name="ReportSummary_Multiline" xml:space="preserve">
     <value>Mehrzeilig</value>
@@ -1698,7 +1717,7 @@ Argumente:
     <value>Benutze Everything Index Suche</value>
   </data>
   <data name="ReportSummary_UsingRegexFilePattern" xml:space="preserve">
-    <value>Benutze RegEx für Dateisuchmuster</value>
+    <value>Benutze reguläre Ausdrücke für Dateisuchmuster</value>
   </data>
   <data name="ReportSummary_UsingTypeOfSeach" xml:space="preserve">
     <value>Benutze {0} Suche</value>
@@ -1755,7 +1774,7 @@ Argumente:
     <value>Phonetisch</value>
   </data>
   <data name="Test_SearchType_Regex" xml:space="preserve">
-    <value>_Regex</value>
+    <value>_Regulären Ausdruck</value>
   </data>
   <data name="Test_SearchType_Text" xml:space="preserve">
     <value>_Text</value>
@@ -1788,10 +1807,10 @@ Argumente:
     <value>{1,3} sucht 1 bis 3 Zeichen</value>
   </data>
   <data name="TTA7_ForMoreRegexPatternsHitF1" xml:space="preserve">
-    <value>Für mehr Regex Suchmuster drücke F1 (Hilfe)</value>
+    <value>Für mehr reguläre Ausdrücke Suchmuster drücke F1 (Hilfe)</value>
   </data>
   <data name="TTB1_ReplacesEntireRegex" xml:space="preserve">
-    <value>$&amp; ersetzt die gesamte Regex</value>
+    <value>$&amp; ersetzt die gesamte reguläre Ausdrücke</value>
   </data>
   <data name="TTB2_InsertsTheTextMatchedIntoTheReplacementText" xml:space="preserve">
     <value>$1, $2, $3, etc... fügt die mit Klammern eingeschlossenen Fundstelle(n) in den durchsuchten Text ein</value>
@@ -1816,5 +1835,964 @@ Argumente:
   </data>
   <data name="Window_RestoreDown" xml:space="preserve">
     <value>verkleinern</value>
+  </data>
+  <data name="Options_HexSearchResultLineLength" xml:space="preserve">
+    <value>Länge der Byte-Suchergebniszeile</value>
+    <comment>Options dialog, results options combo box label</comment>
+  </data>
+  <data name="Options_FilesAndIndividualMatches" xml:space="preserve">
+    <value>Dateien und jeweilige Übereinstimmungen</value>
+    <comment>Options dialog, Replace layout option radio button label (accel)</comment>
+  </data>
+  <data name="Options_FilesOnly" xml:space="preserve">
+    <value>nur Dateien</value>
+    <comment>Options dialog, Replace window layout radio button label (accel)</comment>
+  </data>
+  <data name="Options_ReplaceDialogLayout" xml:space="preserve">
+    <value>Fensterlayout ersetzen</value>
+    <comment>Options dialog, replace view options label</comment>
+  </data>
+  <data name="Replace_NumberOfMatchesMarkedForReplacement" xml:space="preserve">
+    <value>{0} von {1} Übereinstimmungen zum Ersetzen markiert</value>
+    <comment>Replace window, file name progress line: {0} is number of matches marked for replacement; {1} is the number of matches found in the current file</comment>
+  </data>
+  <data name="Main_PowerPointSlideNumber" xml:space="preserve">
+    <value>Folie {0}</value>
+    <comment>Main window, results list label for PowerPoint files: {0} is the slide number in the PowerPoint document</comment>
+  </data>
+  <data name="Options_ResultsFontFamily" xml:space="preserve">
+    <value>Ergebnisse Schriftart</value>
+    <comment>Options dialog, results font selector label</comment>
+  </data>
+  <data name="Options_ResultsFontSize" xml:space="preserve">
+    <value>Ergebnisse Schriftgröße</value>
+    <comment>Options dialog, results font size label</comment>
+  </data>
+  <data name="Options_ResultsFontUsuallyAFixedWidthFont" xml:space="preserve">
+    <value>In Suchergebnissen verwendete Schriftart, in der Regel eine Schriftart mit fester Breite</value>
+    <comment>Options dialog, replace font selector tooltip</comment>
+  </data>
+  <data name="Test_SearchType_Hex" xml:space="preserve">
+    <value>Byte</value>
+    <comment>Test window, search type radio button label (accel)</comment>
+  </data>
+  <data name="BookmarkDetails_FileSource_Group" xml:space="preserve">
+    <value>File source</value>
+    <comment>Bookmark details dialog, file type group header label (accel)</comment>
+  </data>
+  <data name="BookmarkDetails_FileSource_Group_Tooltip" xml:space="preserve">
+    <value>Dateiquelleigenschaften in Lesezeichen einschließen</value>
+    <comment>Bookmark details dialog, file type group header tooltip</comment>
+  </data>
+  <data name="BookmarkDetails_Filters_Group" xml:space="preserve">
+    <value>File filters</value>
+    <comment>Bookmark details dialog, filters group header label (accel)</comment>
+  </data>
+  <data name="BookmarkDetails_Filters_Group_Tooltip" xml:space="preserve">
+    <value>Dateifiltereigenschaften in Lesezeichen einschließen</value>
+    <comment>Bookmark details dialog, filters group header tooltip</comment>
+  </data>
+  <data name="BookmarkDetails_Content_Group" xml:space="preserve">
+    <value>Content</value>
+    <comment>Bookmark details dialog, search group header label (accel)</comment>
+  </data>
+  <data name="BookmarkDetails_Content_Group_Tooltip" xml:space="preserve">
+    <value>Inhaltssucheigenschaften in Lesezeichen einschließen</value>
+    <comment>Bookmark details dialog, search group header tooltip</comment>
+  </data>
+  <data name="Bookmarks_SectionsHeader" xml:space="preserve">
+    <value>Abschnitte</value>
+    <comment>Bookmarks dialog, grid header</comment>
+  </data>
+  <data name="Main_Validation_BooleanExpressionContainsAnUnknownToken" xml:space="preserve">
+    <value>Boolescher Ausdruck enthält ein unbekanntes Token</value>
+    <comment>Main window, Boolean expression detail error message</comment>
+  </data>
+  <data name="Main_Validation_BooleanExpressionHasAnUnknownError" xml:space="preserve">
+    <value>Boolscher Ausdruck fehlerhaft</value>
+    <comment>Main window, Boolean expression detail error message</comment>
+  </data>
+  <data name="Main_Validation_BooleanExpressionHasMismatchedParentheses" xml:space="preserve">
+    <value>Klammerfehler in Booleschem Ausdruck</value>
+    <comment>Main window, Boolean expression detail error message</comment>
+  </data>
+  <data name="Main_Validation_BooleanExpressionIsMissingABooleanOperator" xml:space="preserve">
+    <value>Boolescher Operator fehlt im Ausdruck</value>
+    <comment>Main window, Boolean expression detail error message</comment>
+  </data>
+  <data name="Main_Validation_BooleanExpressionIsMissingASearchPattern" xml:space="preserve">
+    <value>Suchmuster fehlt in Boolschem Ausdruck</value>
+    <comment>Main window, Boolean expression detail error message</comment>
+  </data>
+  <data name="Main_Validation_BooleanExpressionIsNotValid" xml:space="preserve">
+    <value>Ungültiger Boolscher Ausdruck</value>
+    <comment>Main window, Boolean expression status</comment>
+  </data>
+  <data name="Main_Validation_BooleanExpressionIsOK" xml:space="preserve">
+    <value>Boolean expression is OK</value>
+    <comment>Main window, Boolean expression status</comment>
+  </data>
+  <data name="Main_Menu_About_CheckForUpdates" xml:space="preserve">
+    <value>_prüfe auf Update</value>
+    <comment>Main window, main menu subitem label (accel)</comment>
+  </data>
+  <data name="MessageBox_DnGrepIsUpToDate" xml:space="preserve">
+    <value>dnGrep ist aktuell.</value>
+    <comment>Message box text for: Check for updates response</comment>
+  </data>
+  <data name="Main_Results_PreviousFile" xml:space="preserve">
+    <value>Vorherige Datei</value>
+    <comment>Main windows, results list, context menu item label</comment>
+  </data>
+  <data name="Options_Personalize_SearchType" xml:space="preserve">
+    <value>Suchtyp</value>
+    <comment>Options dialog, Personalization group</comment>
+  </data>
+  <data name="ReportOptionsWindow_Cancel" xml:space="preserve">
+    <value>Abbrechen</value>
+    <comment>Report options dialog, close button</comment>
+  </data>
+  <data name="ReportOptionsWindow_Save" xml:space="preserve">
+    <value>Speichern</value>
+    <comment>Report options dialog, button label</comment>
+  </data>
+  <data name="Main_Menu_Personalize" xml:space="preserve">
+    <value>Personalisieren</value>
+    <comment>Main window, main menu item label (accel)</comment>
+  </data>
+  <data name="Main_Menu_Settings" xml:space="preserve">
+    <value>Einstellungen</value>
+    <comment>Main window, main menu item label (accel)</comment>
+  </data>
+  <data name="Options_Personalize_Features" xml:space="preserve">
+    <value>Funktionen</value>
+    <comment>Options dialog, Personalization group</comment>
+  </data>
+  <data name="Options_Personalize_SpecialOptions" xml:space="preserve">
+    <value>Besondere Optionen</value>
+    <comment>Options dialog, Personalization group</comment>
+  </data>
+  <data name="Help_CmdLineFileInformation" xml:space="preserve">
+    <value>/fi [True/False]
+-fi [True/False]
+-fileInformation [True/False]
+    Legt fest, ob Datei- und Zeileninformationen in die Berichtsausgabe aufgenommen werden sollen - "True" oder "False".</value>
+    <comment>Help dialog text when running dnGrep from the command-line</comment>
+  </data>
+  <data name="Help_CmdLineTrimWhitespace" xml:space="preserve">
+    <value>/trim [True/False]
+-trim [True/False]
+-trimWhitespace [True/False]
+    Legt fest, dass Leerzeichen in der Berichtsausgabe abgeschnitten werden - "True" oder "False".</value>
+    <comment>Help dialog text when running dnGrep from the command-line</comment>
+  </data>
+  <data name="Main_ReplaceTooltip_NoWritableFilesInResults" xml:space="preserve">
+    <value>Keine beschreibbaren Dateien in den Ergebnissen</value>
+    <comment>Main window replace button tooltip</comment>
+  </data>
+  <data name="Main_RestoreResults" xml:space="preserve">
+    <value>Ergebnisse wiederherstellen (F7)</value>
+    <comment>Main window, Maximize results button tooltip</comment>
+  </data>
+  <data name="Help_CmdLineListItemSeparator" xml:space="preserve">
+    <value>/sep [Trennzeichen oder Text]
+-sep [Trennzeichen oder Text]
+-listItemSeparator [Trennzeichen oder Text]
+    Legt das Zeichen oder die Zeichenkette fest, das/die Listenelemente in einer Zeile der Berichtsausgabe trennt.</value>
+    <comment>Help dialog text when running dnGrep from the command-line</comment>
+  </data>
+  <data name="Main_MaximizeResults" xml:space="preserve">
+    <value>Ergebnisse maximieren (F7)</value>
+    <comment>Main window, Maximize results button tooltip</comment>
+  </data>
+  <data name="Help_CmdLineReportMode" xml:space="preserve">
+    <value>/rm [mode]
+-rm [mode]
+-reportMode [mode]
+    Legt den Ausgabemodus für Berichte über reguläre Ausdrücke fest - muss einer der folgenden sein: "FullLine", "Matches" oder "Groups".</value>
+    <comment>Help dialog text when running dnGrep from the command-line</comment>
+  </data>
+  <data name="Main_ReplaceTooltip_NoMatchesToReplace" xml:space="preserve">
+    <value>Keine zu ersetzenden Übereinstimmungen</value>
+    <comment>Main window replace button tooltip</comment>
+  </data>
+  <data name="Help_CmdLineSeparateLines" xml:space="preserve">
+    <value>/sl [True/False]
+-sl [True/False]
+-separateLines [True/False]
+    Legt fest, dass jede Übereinstimmung oder Gruppe in einer separaten Zeile in der Ausgabe des Berichts über reguläre Ausdrücke ausgegeben wird - True oder False.</value>
+    <comment>Help dialog text when running dnGrep from the command-line</comment>
+  </data>
+  <data name="Help_CmdLineUniqueValues" xml:space="preserve">
+    <value>/einzigartig [True/False]
+-unique [True/False]
+-uniqueValues [True/False]
+    Legt das Kennzeichen für die Ausgabe eindeutiger Übereinstimmungs- oder Gruppenwerte in der Ausgabe des Berichts über reguläre Ausdrücke fest - "True" oder "False".</value>
+    <comment>Help dialog text when running dnGrep from the command-line</comment>
+  </data>
+  <data name="Main_ReplaceTooltip_ReplaceUsingBooleanOperators" xml:space="preserve">
+    <value>Ersetzen mit booleschen Operatoren mit reiner Textsuche</value>
+    <comment>Main window replace button tooltip</comment>
+  </data>
+  <data name="Options_PersonalizeControlVisibility_Tooltip" xml:space="preserve">
+    <value>Ein- oder Ausblenden von Steuerelementen, wenn "Personalisieren" aktiviert ist</value>
+    <comment>Options dialog, control tooltip</comment>
+  </data>
+  <data name="Main_Status_SearchCompletedIn0_1MatchesFoundIn2FilesOf3Searched" xml:space="preserve">
+    <value>Suche in {0} abgeschlossen - {1} Übereinstimmungen in {2} gefunden Dateien von {3} durchsuchten.</value>
+    <comment>Main window, status bar message: {0} is the duration of the search; {1}  is the total number of matches found; {2} is the number of files with matches found; {3} is the total number of files searched; </comment>
+  </data>
+  <data name="Options_Personalize_PreviewWindow" xml:space="preserve">
+    <value>Vorschau-Fenster</value>
+    <comment>Options dialog, Personalization group</comment>
+  </data>
+  <data name="Options_Personalize_ResultOptions" xml:space="preserve">
+    <value>Ergebnis-Optionen</value>
+    <comment>Options dialog, Personalization group</comment>
+  </data>
+  <data name="Options_MaximizeResultsPanelOnSearch" xml:space="preserve">
+    <value>Ergebnispanel bei der Suche maximieren</value>
+    <comment>Options dialog, layout option checkbox label (accel)</comment>
+  </data>
+  <data name="Options_Personalize_FileFilter" xml:space="preserve">
+    <value>Datei-Filter</value>
+    <comment>Options dialog, Personalization group</comment>
+  </data>
+  <data name="Options_Personalize_ResultsTree" xml:space="preserve">
+    <value>Ergebnisbaum</value>
+    <comment>Options dialog, Personalization group</comment>
+  </data>
+  <data name="Options_Personalize_SearchOptions" xml:space="preserve">
+    <value>Suchoptionen</value>
+    <comment>Options dialog, Personalization group</comment>
+  </data>
+  <data name="Options_PersonalizeControlVisibility" xml:space="preserve">
+    <value>Personalisieren Sie die Sichtbarkeit der Steuerung</value>
+    <comment>Options dialog, control label</comment>
+  </data>
+  <data name="Replace_KeepPreviousFileModifiedDate" xml:space="preserve">
+    <value>Änderungsdatum der vorherigen Datei beibehalten</value>
+    <comment>Replace window, Keep modified date checkbox label</comment>
+  </data>
+  <data name="ReportOptionsWindow_FilterForUniqueValues" xml:space="preserve">
+    <value>Filter für eindeutige Werte</value>
+    <comment>Report options dialog, checkbox label</comment>
+  </data>
+  <data name="ReportOptionsWindow_PerFile" xml:space="preserve">
+    <value>Pro Datei</value>
+    <comment>Report options dialog, radio button label</comment>
+  </data>
+  <data name="ReportOptionsWindow_IncludeFileAndLineInformation" xml:space="preserve">
+    <value>Datei- und Zeileninformationen einbeziehen</value>
+    <comment>Report options dialog, checkbox label</comment>
+  </data>
+  <data name="ReportOptionsWindow_PressF1ForHelp" xml:space="preserve">
+    <value>Drücken Sie F1 für Hilfe</value>
+    <comment>Report options dialog, help label</comment>
+  </data>
+  <data name="ReportOptionsWindow_ReportOptions" xml:space="preserve">
+    <value>Berichtsoptionen</value>
+    <comment>Report options dialog, window title</comment>
+  </data>
+  <data name="ReportOptionsWindow_SeparatorForMultipleMatchesOrGroupsOnALine" xml:space="preserve">
+    <value>Trennzeichen für mehrere Übereinstimmungen oder Gruppen in einer Zeile</value>
+    <comment>Report options dialog, text box label</comment>
+  </data>
+  <data name="ReportOptionsWindow_TrimWhitespace" xml:space="preserve">
+    <value>Kürzen von Leerzeichen</value>
+    <comment>Report options dialog, checkbox label</comment>
+  </data>
+  <data name="ReportOptionsWindow_ShowEachMatchOrGroupOnSeparateLine" xml:space="preserve">
+    <value>Jede Übereinstimmung oder Gruppe in einer eigenen Zeile anzeigen</value>
+    <comment>Report options dialog, checkbox label</comment>
+  </data>
+  <data name="ReportOptionsWindow_Text" xml:space="preserve">
+    <value>Text</value>
+    <comment>Report options dialog, radio button label</comment>
+  </data>
+  <data name="BookmarkDetails_SkipRemoteCloudStorageFiles" xml:space="preserve">
+    <value>Cloud-Speicherdateien überspringen</value>
+    <comment>Bookmark details dialog, checkbox label (accel)</comment>
+  </data>
+  <data name="TTB0_InsertsTabNewline" xml:space="preserve">
+    <value>\\\t fügt Tabulator ein, \\\r fügt Return ein, \\\n fügt Zeilenumbruch ein</value>
+    <comment>Main window and Test window tooltip</comment>
+  </data>
+  <data name="Help_CmdLineUniqueScope" xml:space="preserve">
+    <value>/scope [scope]
+-scope [scope]
+-uniqueScope [scope]
+    Setzt das Flag, um den Bereich der eindeutigen Werte in der Ausgabe des Berichts mit regulären Ausdrücken festzulegen - muss einer der folgenden Werte sein: "Global" oder "PerFile".</value>
+    <comment>Help dialog text when running dnGrep from the command-line</comment>
+  </data>
+  <data name="Main_SkipRemoteCloudStorageFiles" xml:space="preserve">
+    <value>Überspringen entfernter Cloud-Speicherdateien</value>
+    <comment>Main window, search option label</comment>
+  </data>
+  <data name="Options_PluginShowPlainTextInPreview" xml:space="preserve">
+    <value>Klartext in der Vorschau anzeigen</value>
+    <comment>Options dialog, plug-ins checkbox label</comment>
+  </data>
+  <data name="Preview_Syntax" xml:space="preserve">
+    <value>Syntax</value>
+    <comment>Preview window, option label</comment>
+  </data>
+  <data name="Preview_Title_AsText" xml:space="preserve">
+    <value>(als Text)</value>
+    <comment>Preview window, file label when binary file is shown as text</comment>
+  </data>
+  <data name="ReportOptionsWindow_CaptureGroupsOnly" xml:space="preserve">
+    <value>Nur Gruppen erfassen</value>
+    <comment>Report options dialog, radio button label</comment>
+  </data>
+  <data name="ReportOptionsWindow_CSV" xml:space="preserve">
+    <value>CSV</value>
+    <comment>Report options dialog, radio button label</comment>
+  </data>
+  <data name="ReportOptionsWindow_Global" xml:space="preserve">
+    <value>Global</value>
+    <comment>Report options dialog, radio button label</comment>
+  </data>
+  <data name="Replace_WhenCheckedTheDateModifiedWillNotBeChangedOnReplace" xml:space="preserve">
+    <value>Wenn diese Option aktiviert ist, wird das "Änderungsdatum" beim Ersetzen nicht geändert</value>
+    <comment>Replace window, Keep modified date checkbox tooltip</comment>
+  </data>
+  <data name="ReportOptionsWindow_FullLines" xml:space="preserve">
+    <value>Vollständige Zeilen</value>
+    <comment>Report options dialog, radio button label</comment>
+  </data>
+  <data name="ReportOptionsWindow_MatchesOnly" xml:space="preserve">
+    <value>Nur Übereinstimmungen</value>
+    <comment>Report options dialog, radio button label</comment>
+  </data>
+  <data name="Main_MoreMenu_Report_Options" xml:space="preserve">
+    <value>Berichtsoptionen…</value>
+    <comment>Main window, More button menu item label (accel)</comment>
+  </data>
+  <data name="Main_ReplaceTooltip_SearchParametersHaveChanged" xml:space="preserve">
+    <value>Die Suchparameter haben sich geändert</value>
+    <comment>Main window replace button tooltip</comment>
+  </data>
+  <data name="Main_Results_MakeWritable" xml:space="preserve">
+    <value>Beschreibbar machen</value>
+    <comment>Main windows, results list, context menu item label</comment>
+  </data>
+  <data name="Main_Results_NextFile" xml:space="preserve">
+    <value>Nächste Datei</value>
+    <comment>Main windows, results list, context menu item label</comment>
+  </data>
+  <data name="ReportOptionsWindow_Preview" xml:space="preserve">
+    <value>Vorschau:</value>
+    <comment>Report options dialog, label</comment>
+  </data>
+  <data name="Bookmarks_AltDownArrow" xml:space="preserve">
+    <value>Alt+Pfeil nach unten</value>
+    <comment>Bookmarks dialog, bookmark list 'Move down' context menu shortcut text</comment>
+  </data>
+  <data name="Bookmarks_MoveDown" xml:space="preserve">
+    <value>Nach unten verschieben</value>
+    <comment>Bookmarks dialog, bookmark list context menu text</comment>
+  </data>
+  <data name="Bookmarks_MoveToBottom" xml:space="preserve">
+    <value>Nach unten verschieben</value>
+    <comment>Bookmarks dialog, bookmark list context menu text</comment>
+  </data>
+  <data name="Bookmarks_MoveToTop" xml:space="preserve">
+    <value>Nach oben verschieben</value>
+    <comment>Bookmarks dialog, bookmark list context menu text</comment>
+  </data>
+  <data name="BookmarkDetails_BookmarkName" xml:space="preserve">
+    <value>Lesezeichen Name:</value>
+    <comment>Bookmark name label</comment>
+  </data>
+  <data name="Bookmarks_AltUpArrow" xml:space="preserve">
+    <value>Alt+Pfeil nach oben</value>
+    <comment>Bookmarks dialog, bookmark list 'Move up' context menu shortcut text</comment>
+  </data>
+  <data name="Bookmarks_MoveUp" xml:space="preserve">
+    <value>Nach oben</value>
+    <comment>Bookmarks dialog, bookmark list context menu text</comment>
+  </data>
+  <data name="Bookmarks_NameHeader" xml:space="preserve">
+    <value>Name</value>
+    <comment>Bookmarks dialog, grid header</comment>
+  </data>
+  <data name="Bookmarks_ShiftAltDownArrow" xml:space="preserve">
+    <value>Umschalt+Alt+Pfeil nach unten</value>
+    <comment>Bookmarks dialog, bookmark list 'Move to bottom' context menu shortcut text</comment>
+  </data>
+  <data name="Bookmarks_ShiftAltUpArrow" xml:space="preserve">
+    <value>Umschalt+Alt+Pfeil nach oben</value>
+    <comment>Bookmarks dialog, bookmark list 'Move to top' context menu shortcut text</comment>
+  </data>
+  <data name="Script_Editor_Close" xml:space="preserve">
+    <value>_Schließen</value>
+    <comment>Script editor menu item (accel)</comment>
+  </data>
+  <data name="Script_Editor_Delete" xml:space="preserve">
+    <value>_Löschen</value>
+    <comment>Script editor menu item (accel)</comment>
+  </data>
+  <data name="Script_Editor_Edit" xml:space="preserve">
+    <value>_Bearbeiten</value>
+    <comment>Script editor menu item (accel)</comment>
+  </data>
+  <data name="Script_Editor_Help" xml:space="preserve">
+    <value>_Hilfe</value>
+    <comment>Script editor menu item (accel)</comment>
+  </data>
+  <data name="Script_Editor_Undo" xml:space="preserve">
+    <value>_Rückgängig</value>
+    <comment>Script editor menu item (accel)</comment>
+  </data>
+  <data name="ScriptHint_set_booleanoperators" xml:space="preserve">
+    <value>Boolsche Operatoren</value>
+    <comment>Script editor command/target tooltip</comment>
+  </data>
+  <data name="ScriptHint_set_capturegroupsearch" xml:space="preserve">
+    <value>Gruppensuche erfassen</value>
+    <comment>Script editor command/target tooltip</comment>
+  </data>
+  <data name="ScriptHint_set_casesensitive" xml:space="preserve">
+    <value>Groß-/Kleinschreibung berücksichtigen</value>
+    <comment>Script editor command/target tooltip</comment>
+  </data>
+  <data name="ScriptHint_set_dotasnewline" xml:space="preserve">
+    <value>Punkt als neue Zeile</value>
+    <comment>Script editor command/target tooltip</comment>
+  </data>
+  <data name="ScriptHint_set_followsymlinks" xml:space="preserve">
+    <value>Folge symbolischen Verknüpfungen</value>
+    <comment>Script editor command/target tooltip</comment>
+  </data>
+  <data name="ScriptHint_set_highlightgroups" xml:space="preserve">
+    <value>Gruppen hervorheben</value>
+    <comment>Script editor command/target tooltip</comment>
+  </data>
+  <data name="ScriptHint_set_includebinary" xml:space="preserve">
+    <value>Binärdateien einschliessen</value>
+    <comment>Script editor command/target tooltip</comment>
+  </data>
+  <data name="ScriptHint_set_includehidden" xml:space="preserve">
+    <value>Versteckte Verzeichnisse einschliessen</value>
+    <comment>Script editor command/target tooltip</comment>
+  </data>
+  <data name="ScriptHint_set_includesubfolder" xml:space="preserve">
+    <value>Unterverzeichnisse einschliessen</value>
+    <comment>Script editor command/target tooltip</comment>
+  </data>
+  <data name="ScriptHint_set_multiline" xml:space="preserve">
+    <value>Mehrzeilig</value>
+    <comment>Script editor command/target tooltip</comment>
+  </data>
+  <data name="ScriptHint_set_replacewith" xml:space="preserve">
+    <value>Ersetze mit</value>
+    <comment>Script editor command/target tooltip</comment>
+  </data>
+  <data name="ScriptHint_set_searchfor" xml:space="preserve">
+    <value>Suche nach</value>
+    <comment>Script editor command/target tooltip</comment>
+  </data>
+  <data name="ScriptHint_set_searchinarchives" xml:space="preserve">
+    <value>Suche in Archiven</value>
+    <comment>Script editor command/target tooltip</comment>
+  </data>
+  <data name="ScriptHint_set_searchinresults" xml:space="preserve">
+    <value>Suche in Ergebnissen</value>
+    <comment>Script editor command/target tooltip</comment>
+  </data>
+  <data name="ScriptHint_set_showcontextlines" xml:space="preserve">
+    <value>Kontextzeilen einblenden</value>
+    <comment>Script editor command/target tooltip</comment>
+  </data>
+  <data name="ScriptHint_set_skipremotecloudstoragefiles" xml:space="preserve">
+    <value>Überspringen entfernter Cloud-Speicherdateien</value>
+    <comment>Script editor command/target tooltip</comment>
+  </data>
+  <data name="ScriptHint_set_stopafterfirstmatch" xml:space="preserve">
+    <value>Halt nach erster Fundstelle</value>
+    <comment>Script editor command/target tooltip</comment>
+  </data>
+  <data name="ScriptHint_set_usegitignore" xml:space="preserve">
+    <value>benutze .gitignore</value>
+    <comment>Script editor command/target tooltip</comment>
+  </data>
+  <data name="ScriptHint_set_wholeword" xml:space="preserve">
+    <value>Ganzes Wort</value>
+    <comment>Script editor command/target tooltip</comment>
+  </data>
+  <data name="ScriptHint_set_wraptext" xml:space="preserve">
+    <value>Text mit Zeilenumbrüchen</value>
+    <comment>Script editor command/target tooltip</comment>
+  </data>
+  <data name="Scripts_OK" xml:space="preserve">
+    <value>OK</value>
+    <comment>Script Messages dialog button text</comment>
+  </data>
+  <data name="Options_ArchiveReset" xml:space="preserve">
+    <value>Zurücksetzen</value>
+    <comment>Options dialog, Archive extensions button label (accel)</comment>
+  </data>
+  <data name="Options_PluginReset" xml:space="preserve">
+    <value>Zurücksetzen</value>
+    <comment>Options dialog, plug-ins extensions button label (accel)</comment>
+  </data>
+  <data name="MessageBox_Cancel" xml:space="preserve">
+    <value>Abbrechen</value>
+    <comment>Message box button text</comment>
+  </data>
+  <data name="MessageBox_OK" xml:space="preserve">
+    <value>OK</value>
+    <comment>Message box button text</comment>
+  </data>
+  <data name="Options_SearchOptions" xml:space="preserve">
+    <value>Suchoptionen</value>
+    <comment>Options dialog, search options group header label</comment>
+  </data>
+  <data name="Options_DeleteFiles" xml:space="preserve">
+    <value>Dateien löschen</value>
+    <comment>Options dialog, delete files group header label</comment>
+  </data>
+  <data name="Options_DeletePermanently" xml:space="preserve">
+    <value>Dauerhaft löschen</value>
+    <comment>Options dialog, delete option label (accel)</comment>
+  </data>
+  <data name="Options_SendToRecycleBin" xml:space="preserve">
+    <value>In den Papierkorb senden</value>
+    <comment>Options dialog, delete option label (accel)</comment>
+  </data>
+  <data name="Options_WhenDeletingFiles" xml:space="preserve">
+    <value>Beim Löschen von Dateien</value>
+    <comment>Options dialog, delete option label</comment>
+  </data>
+  <data name="Script_Editor_Suggest" xml:space="preserve">
+    <value>Vorschlagen</value>
+    <comment>Script editor menu item (accel)</comment>
+  </data>
+  <data name="Script_Editor_Title" xml:space="preserve">
+    <value>Skript-Editor</value>
+    <comment>Script editor menu item (accel)</comment>
+  </data>
+  <data name="Script_Validation_Header_Line" xml:space="preserve">
+    <value>Zeile</value>
+    <comment>Script validation list header</comment>
+  </data>
+  <data name="Script_Editor_Tools" xml:space="preserve">
+    <value>_Werkzeuge</value>
+    <comment>Script editor menu item (accel)</comment>
+  </data>
+  <data name="Script_Validation_Header_Message" xml:space="preserve">
+    <value>Nachricht</value>
+    <comment>Script validation list header</comment>
+  </data>
+  <data name="Script_Validation_TheCommandIsInvalid" xml:space="preserve">
+    <value>Der Befehl ist ungültig</value>
+    <comment>Script validation error message</comment>
+  </data>
+  <data name="Script_Validation_ThisCommandDoesNotNeedAValueParameter" xml:space="preserve">
+    <value>Dieser Befehl benötigt keinen Werteparameter</value>
+    <comment>Script validation error message</comment>
+  </data>
+  <data name="ScriptHint_bookmark_remove" xml:space="preserve">
+    <value>Ein Lesezeichen entfernen</value>
+    <comment>Script editor command/target tooltip </comment>
+  </data>
+  <data name="ScriptHint_bookmark_addfolder" xml:space="preserve">
+    <value>Hinzufügen eines neuen Lesezeichens, das mit dem aktuellen Suchordner verknüpft ist</value>
+    <comment>Script editor command/target tooltip </comment>
+  </data>
+  <data name="ScriptHint_bookmark_use" xml:space="preserve">
+    <value>Lesezeichen-Einstellungen anwenden</value>
+    <comment>Script editor command/target tooltip </comment>
+  </data>
+  <data name="ScriptHint_copyfilenames" xml:space="preserve">
+    <value>Dateinamen in den Ergebnissen in die Zwischenablage kopieren</value>
+    <comment>Script editor command tooltip</comment>
+  </data>
+  <data name="ScriptHint_deletefiles" xml:space="preserve">
+    <value>Löschen Sie die Ergebnisdateien dauerhaft</value>
+    <comment>Script editor command tooltip</comment>
+  </data>
+  <data name="ScriptHint_expandfilefilters" xml:space="preserve">
+    <value>Erweitern oder Ausblenden des Abschnitts "Dateifilter"</value>
+    <comment>Script editor command tooltip</comment>
+  </data>
+  <data name="ScriptHint_include_script" xml:space="preserve">
+    <value>Die Befehle eines anderen Skripts in das aktuelle Skript einfügen</value>
+    <comment>Script editor command/target tooltip</comment>
+  </data>
+  <data name="ScriptHint_maximizeresults" xml:space="preserve">
+    <value>Maximieren oder Wiederherstellen des Suchergebnisbaums</value>
+    <comment>Script editor command tooltip</comment>
+  </data>
+  <data name="ScriptHint_movefiles" xml:space="preserve">
+    <value>Verschieben von Ergebnisdateien an einen neuen Ort</value>
+    <comment>Script editor command tooltip</comment>
+  </data>
+  <data name="ScriptHint_report" xml:space="preserve">
+    <value>Einen Bericht schreiben</value>
+    <comment>Script editor command tooltip</comment>
+  </data>
+  <data name="ScriptHint_report_arg_value" xml:space="preserve">
+    <value>Der Pfad und der Dateiname für den Bericht</value>
+    <comment>Script editor command/target/value tooltip</comment>
+  </data>
+  <data name="ScriptHint_report_csv" xml:space="preserve">
+    <value>Der Ergebnisbericht als csv-Datei</value>
+    <comment>Script editor command/target tooltip</comment>
+  </data>
+  <data name="Script_Editor_File" xml:space="preserve">
+    <value>_Datei</value>
+    <comment>Script editor menu item (accel)</comment>
+  </data>
+  <data name="Script_Editor_New" xml:space="preserve">
+    <value>_Neu…</value>
+    <comment>Script editor menu item (accel)</comment>
+  </data>
+  <data name="Script_Editor_SaveAs" xml:space="preserve">
+    <value>Speichern _als…</value>
+    <comment>Script editor menu item (accel)</comment>
+  </data>
+  <data name="ScriptHint_bookmark" xml:space="preserve">
+    <value>Lesezeichen</value>
+    <comment>Script editor command tooltip</comment>
+  </data>
+  <data name="Script_Editor_RunScript" xml:space="preserve">
+    <value>_Skript ausführen</value>
+    <comment>Script editor menu item (accel)</comment>
+  </data>
+  <data name="Script_Editor_Validate" xml:space="preserve">
+    <value>Va_lidieren</value>
+    <comment>Script editor menu item (accel)</comment>
+  </data>
+  <data name="Help_CmdLineScript" xml:space="preserve">
+    <value>/sc [scriptKey]
+-sc [scriptKey]
+-script [SkriptSchlüssel]
+    Führt das durch den Skriptschlüssel identifizierte Skript aus.</value>
+    <comment>Help dialog text when running dnGrep from the command-line</comment>
+  </data>
+  <data name="Main_Menu_NewScript" xml:space="preserve">
+    <value>Neues Skript…</value>
+    <comment>Main window, main menu item label (accel)</comment>
+  </data>
+  <data name="Main_Menu_Scripts" xml:space="preserve">
+    <value>Skripte</value>
+    <comment>Main window, main menu item label (accel)</comment>
+  </data>
+  <data name="Main_Results_MoveFilesToRecycleBin" xml:space="preserve">
+    <value>Dateien in Papierkorb verschieben</value>
+    <comment>Main window, results list, context menu item label</comment>
+  </data>
+  <data name="MessageBox_Scripts_HasValidationErrorsSaveAnyway" xml:space="preserve">
+    <value>{0} weist Validierungsfehler auf. Trotzdem speichern?</value>
+    <comment>Message box text for: Script validation errors; {0} is a script file name</comment>
+  </data>
+  <data name="Options_PDFNumberStyle" xml:space="preserve">
+    <value>PDF-Nummernstil:</value>
+    <comment>Options dialog, PDF numbering options label</comment>
+  </data>
+  <data name="Rename_FileNameAlreadyExistsInThisDirectory" xml:space="preserve">
+    <value>Dateiname existiert bereits in diesem Verzeichnis</value>
+    <comment>Rename file dialog error message</comment>
+  </data>
+  <data name="Script_Editor_Copy" xml:space="preserve">
+    <value>_Kopieren</value>
+    <comment>Script editor menu item (accel)</comment>
+  </data>
+  <data name="Script_Editor_Cut" xml:space="preserve">
+    <value>Ausschneiden</value>
+    <comment>Script editor menu item (accel)</comment>
+  </data>
+  <data name="Script_Editor_DeleteLine" xml:space="preserve">
+    <value>_Zeile löschen</value>
+    <comment>Script editor menu item (accel)</comment>
+  </data>
+  <data name="Script_Editor_MoveDown" xml:space="preserve">
+    <value>Ausgewählte Zeilen nach unten verschieben</value>
+    <comment>Script editor menu item (accel)</comment>
+  </data>
+  <data name="Script_Editor_MoveUp" xml:space="preserve">
+    <value>Ausgewählte Zeilen nach oben verschieben</value>
+    <comment>Script editor menu item (accel)</comment>
+  </data>
+  <data name="Script_Editor_Paste" xml:space="preserve">
+    <value>_Einfügen</value>
+    <comment>Script editor menu item (accel)</comment>
+  </data>
+  <data name="Script_Validation_TheScriptKeyWasNotFound" xml:space="preserve">
+    <value>Der Skriptschlüssel wurde nicht gefunden</value>
+    <comment>Script validation error message</comment>
+  </data>
+  <data name="Script_Validation_TheTargetNameIsInvalid" xml:space="preserve">
+    <value>Der Zielname ist ungültig</value>
+    <comment>Script validation error message</comment>
+  </data>
+  <data name="Script_Validation_TheValueCannotBeConvertedFromTheString" xml:space="preserve">
+    <value>Der Wert kann nicht aus dem String konvertiert werden</value>
+    <comment>Script validation error message</comment>
+  </data>
+  <data name="Script_Validation_ThisCommandDoesNotAllowANullValue" xml:space="preserve">
+    <value>Dieser Befehl erlaubt keinen Nullwert</value>
+    <comment>Script validation error message</comment>
+  </data>
+  <data name="Script_Validation_TheValueCouldNotBeConvertedToTheCorrectType" xml:space="preserve">
+    <value>Der Wert konnte nicht in den richtigen Typ konvertiert werden</value>
+    <comment>Script validation error message</comment>
+  </data>
+  <data name="ScriptHint_bookmark_use_value" xml:space="preserve">
+    <value>Der Name eines Lesezeichens</value>
+    <comment>Script editor command/target tooltip </comment>
+  </data>
+  <data name="ScriptHint_exit" xml:space="preserve">
+    <value>Alle Fenster schließen und dnGrep beenden</value>
+    <comment>Script editor command tooltip</comment>
+  </data>
+  <data name="ScriptHint_include_script_value" xml:space="preserve">
+    <value>Der Schlüssel/Dateiname des Skripts</value>
+    <comment>Script editor command/target/value tooltip</comment>
+  </data>
+  <data name="ScriptHint_movefiles_value" xml:space="preserve">
+    <value>Der Pfad des Zielordners</value>
+    <comment>Script editor command/value tooltip</comment>
+  </data>
+  <data name="ScriptHint_replace" xml:space="preserve">
+    <value>Ersetzen von Übereinstimmungen in Dateien</value>
+    <comment>Script editor command tooltip</comment>
+  </data>
+  <data name="Options_PageNumbers" xml:space="preserve">
+    <value>Seitenzahlen</value>
+    <comment>Options dialog, PDF numbering option</comment>
+  </data>
+  <data name="Main_Results_ShowExplorerMenu" xml:space="preserve">
+    <value>Explorer-Menü anzeigen</value>
+    <comment>Main window, results list, context menu item label</comment>
+  </data>
+  <data name="Options_Ask" xml:space="preserve">
+    <value>Fragen</value>
+    <comment>Options dialog, radio button label (Yes/No/Ask)</comment>
+  </data>
+  <data name="MessageBox_DoNotAskAgain" xml:space="preserve">
+    <value>Nicht mehr fragen</value>
+    <comment>Message box check box label</comment>
+  </data>
+  <data name="MessageBox_No" xml:space="preserve">
+    <value>_Nein</value>
+    <comment>Message box button text (accel)</comment>
+  </data>
+  <data name="MessageBox_NoToAll" xml:space="preserve">
+    <value>Nein zu A_llem</value>
+    <comment>Message box button text (accel)</comment>
+  </data>
+  <data name="MessageBox_Scripts_HasUnsavedChangesSaveNow" xml:space="preserve">
+    <value>{0} hat ungespeicherte Änderungen. Jetzt speichern?</value>
+    <comment>Message box text for: Scripts unsaved changes; {0} is a script file name</comment>
+  </data>
+  <data name="MessageBox_Yes" xml:space="preserve">
+    <value>_Ja</value>
+    <comment>Message box button text (accel)</comment>
+  </data>
+  <data name="MessageBox_YesToAll" xml:space="preserve">
+    <value>Ja zu _Alle</value>
+    <comment>Message box button text (accel)</comment>
+  </data>
+  <data name="Options_OnFileMoveOverwrite" xml:space="preserve">
+    <value>Wird beim Verschieben einer Datei die vorhandene Datei überschrieben, wenn die Zieldatei bereits existiert?</value>
+    <comment>Options dialog, overwrite on move options label</comment>
+  </data>
+  <data name="Options_MoveFiles" xml:space="preserve">
+    <value>Dateien verschieben</value>
+    <comment>Options dialog, move files group header label</comment>
+  </data>
+  <data name="Options_No" xml:space="preserve">
+    <value>Nein</value>
+    <comment>Options dialog, radio button label (Yes/No/Ask)</comment>
+  </data>
+  <data name="Options_Yes" xml:space="preserve">
+    <value>Ja</value>
+    <comment>Options dialog, radio button label (Yes/No/Ask)</comment>
+  </data>
+  <data name="Script_Editor_Redo" xml:space="preserve">
+    <value>_Wiederholen</value>
+    <comment>Script editor menu item (accel)</comment>
+  </data>
+  <data name="Script_Editor_Save" xml:space="preserve">
+    <value>_Speichern</value>
+    <comment>Script editor menu item (accel)</comment>
+  </data>
+  <data name="Script_Editor_ScriptingCommands" xml:space="preserve">
+    <value>_Skripting-Befehle</value>
+    <comment>Script editor menu item (accel)</comment>
+  </data>
+  <data name="Script_Validation_Header" xml:space="preserve">
+    <value>Validierung</value>
+    <comment>Script validation list header</comment>
+  </data>
+  <data name="Script_Validation_ThisCommandRequiresABooleanValue" xml:space="preserve">
+    <value>Für diesen Befehl ist ein boolescher Wert erforderlich</value>
+    <comment>Script validation error message</comment>
+  </data>
+  <data name="Script_Validation_ThisCommandRequiresAStringValue" xml:space="preserve">
+    <value>Dieser Befehl erfordert einen String-Wert</value>
+    <comment>Script validation error message</comment>
+  </data>
+  <data name="Script_Validation_ThisCommandRequiresATargetParameter" xml:space="preserve">
+    <value>Für diesen Befehl ist ein Zielparameter erforderlich</value>
+    <comment>Script validation error message</comment>
+  </data>
+  <data name="ScriptHint_bookmark_add" xml:space="preserve">
+    <value>Ein neues Lesezeichen hinzufügen</value>
+    <comment>Script editor command/target tooltip </comment>
+  </data>
+  <data name="ScriptHint_bookmark_add_value" xml:space="preserve">
+    <value>Der Name für das neue Lesezeichen, oder leer</value>
+    <comment>Script editor command/target tooltip </comment>
+  </data>
+  <data name="ScriptHint_bookmark_remove_value" xml:space="preserve">
+    <value>Der Name des Lesezeichens, das entfernt werden soll, oder leer für das aktuelle Lesezeichen</value>
+    <comment>Script editor command/target tooltip </comment>
+  </data>
+  <data name="ScriptHint_bookmark_removefolder" xml:space="preserve">
+    <value>Entfernen eines Ordner-Lesezeichens</value>
+    <comment>Script editor command/target tooltip </comment>
+  </data>
+  <data name="ScriptHint_expandresultoptions" xml:space="preserve">
+    <value>Erweitern oder verbergen Sie die Ergebnisse Optionen Abschnitt</value>
+    <comment>Script editor command tooltip</comment>
+  </data>
+  <data name="ScriptHint_include" xml:space="preserve">
+    <value>Importieren von Daten</value>
+    <comment>Script editor command tooltip</comment>
+  </data>
+  <data name="ScriptHint_messages" xml:space="preserve">
+    <value>Das Skript-Meldungsfenster immer anzeigen, wenn das Skript beendet ist</value>
+    <comment>Script editor command tooltip</comment>
+  </data>
+  <data name="Rename_FileNameContainsInvalidCharacters" xml:space="preserve">
+    <value>Dateiname enthält ungültige Zeichen</value>
+    <comment>Rename file dialog error message</comment>
+  </data>
+  <data name="Main_Menu_EditScript" xml:space="preserve">
+    <value>Skript bearbeiten…</value>
+    <comment>Main window, main menu item label (accel)</comment>
+  </data>
+  <data name="Main_Menu_CancelScript" xml:space="preserve">
+    <value>Skript abbrechen</value>
+    <comment>Main window, main menu item label (accel)</comment>
+  </data>
+  <data name="Main_Menu_About_AppData" xml:space="preserve">
+    <value>Anwendungsdaten und _Logs</value>
+    <comment>Main window, main menu subitem label (accel)</comment>
+  </data>
+  <data name="Main_StatusTooltip_MatchNumberMatchCountInFile" xml:space="preserve">
+    <value>Anzahl der Übereinstimmungen/Zahl der Übereinstimmungen in der Datei</value>
+    <comment>Main window, status bar tooltip</comment>
+  </data>
+  <data name="Main_StatusTooltip_MatchCountOnLine" xml:space="preserve">
+    <value>Anzahl der Treffer in Zeile</value>
+    <comment>Main window, status bar tooltip</comment>
+  </data>
+  <data name="Options_LineNumbers" xml:space="preserve">
+    <value>Zeilennummern</value>
+    <comment>Options dialog, PDF numbering option</comment>
+  </data>
+  <data name="Main_StatusTooltip_MatchNumberMatchCountOverall" xml:space="preserve">
+    <value>Anzahl der Treffer/Anzahl der Treffer insgesamt</value>
+    <comment>Main window, status bar tooltip</comment>
+  </data>
+  <data name="Options_OnFileCopyOverwrite" xml:space="preserve">
+    <value>Wird beim Kopieren einer Datei die vorhandene Datei überschrieben, wenn die Zieldatei bereits existiert?</value>
+    <comment>Options dialog, overwrite on copy options label</comment>
+  </data>
+  <data name="ScriptHint_copyfiles" xml:space="preserve">
+    <value>Kopieren von Ergebnisdateien an einen neuen Speicherort</value>
+    <comment>Script editor command tooltip</comment>
+  </data>
+  <data name="ScriptHint_copyfiles_value" xml:space="preserve">
+    <value>Der Zielordnerpfad</value>
+    <comment>Script editor command tooltip</comment>
+  </data>
+  <data name="ScriptHint_copyresults" xml:space="preserve">
+    <value>Ergebnistext in die Zwischenablage kopieren</value>
+    <comment>Script editor command tooltip</comment>
+  </data>
+  <data name="Options_CopyFiles" xml:space="preserve">
+    <value>Dateien kopieren</value>
+    <comment>Options dialog, move files group header label</comment>
+  </data>
+  <data name="ScriptHint_report_text_value" xml:space="preserve">
+    <value>Der Pfad und der Dateiname für den Bericht</value>
+    <comment>Script editor command/target/value tooltip</comment>
+  </data>
+  <data name="Main_Results_CopyFiles" xml:space="preserve">
+    <value>Dateien kopieren…</value>
+    <comment>Main window, results list, context menu item label</comment>
+  </data>
+  <data name="Main_Results_MoveFiles" xml:space="preserve">
+    <value>Dateien verschieben…</value>
+    <comment>Main window, results list, context menu item label</comment>
+  </data>
+  <data name="Main_Results_DeleteFiles" xml:space="preserve">
+    <value>Dateien löschen</value>
+    <comment>Main window, results list, context menu item label</comment>
+  </data>
+  <data name="ScriptHint_resetfilters" xml:space="preserve">
+    <value>Filter auf den Standardwert zurücksetzen</value>
+    <comment>Script editor command tooltip</comment>
+  </data>
+  <data name="ScriptHint_run_powershell" xml:space="preserve">
+    <value>Ein PowerShell-Script ausführen</value>
+    <comment>Script editor command/target tooltip</comment>
+  </data>
+  <data name="Options_MaximumNumberOfParallelSearches" xml:space="preserve">
+    <value>Maximale Anzahl von parallelen Suchoperationen</value>
+    <comment>Options dialog, parallel options label</comment>
+  </data>
+  <data name="Main_Status_SearchCanceledIn01MatchesFoundIn2FilesOf3Searched" xml:space="preserve">
+    <value>Suche abgebrochen nach {0} - {1} Übereinstimmungen in {2} von {3} durchsuchten Dateien gefunden.</value>
+    <comment>Main window, status bar message: {0} is the duration of the search; {1}  is the total number of matches found; {2} is the number of files with matches found; {3} is the total number of files searched; </comment>
+  </data>
+  <data name="Main_Status_ReplaceCanceledReplacedTextIn0Files" xml:space="preserve">
+    <value>Ersetzen abgebrochen - Text in {0} Dateien wurde ersetzt.</value>
+    <comment>Main window, status bar message: {0} is the number of files modified by the replace operation</comment>
+  </data>
+  <data name="Main_ResumeButton" xml:space="preserve">
+    <value>Fortsetzen</value>
+    <comment>Main window pause/resume button label (accel)</comment>
+  </data>
+  <data name="Main_PauseButton" xml:space="preserve">
+    <value>Pausieren</value>
+    <comment>Main window pause/resume button label (accel)</comment>
+  </data>
+  <data name="Main_Paused" xml:space="preserve">
+    <value>Pausiert</value>
+    <comment>Main window, status bar label</comment>
+  </data>
+  <data name="TextBox_Command_Cut" xml:space="preserve">
+    <value>Ausschneiden</value>
+  </data>
+  <data name="TextBox_Command_Copy" xml:space="preserve">
+    <value>Kopieren</value>
+  </data>
+  <data name="TextBox_Command_Paste" xml:space="preserve">
+    <value>Einfügen</value>
+  </data>
+  <data name="Report_Page" xml:space="preserve">
+    <value>Seite</value>
+    <comment>Report content - heading for page number</comment>
+  </data>
+  <data name="TextBox_Command_MakeLowercase" xml:space="preserve">
+    <value>in kleinbuchstaben umwandeln</value>
+  </data>
+  <data name="TextBox_Command_MakeUppercase" xml:space="preserve">
+    <value>in GROẞBUCHSTABEN umwandeln</value>
+  </data>
+  <data name="Main_Filter" xml:space="preserve">
+    <value>Filter:</value>
+    <comment>Main window, ignore filter file selector label (accel)</comment>
+  </data>
+  <data name="BookmarkDetails_Filter" xml:space="preserve">
+    <value>Filter:</value>
+    <comment>Bookmark details dialog, ignore filter combo box label (accel)</comment>
   </data>
 </root>

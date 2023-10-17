@@ -2,6 +2,7 @@
 using System.Collections;
 using System.Collections.Generic;
 using System.Collections.Specialized;
+using System.IO;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
@@ -10,8 +11,9 @@ using System.Windows.Controls;
 using System.Windows.Documents;
 using System.Windows.Input;
 using System.Windows.Media;
-using Alphaleonis.Win32.Filesystem;
 using dnGREP.Common;
+using dnGREP.Common.UI;
+using Microsoft.VisualBasic.FileIO;
 
 namespace dnGREP.WPF.UserControls
 {
@@ -21,31 +23,31 @@ namespace dnGREP.WPF.UserControls
     public partial class ResultsTree : UserControl
     {
         private enum SearchDirection { Down = 0, Up };
-        private ObservableGrepSearchResults inputData = new ObservableGrepSearchResults();
+        private GrepSearchResultsViewModel viewModel = new();
 
         public ResultsTree()
         {
             InitializeComponent();
             DataContextChanged += ResultsTree_DataContextChanged;
 
-            treeView.PreviewMouseWheel += treeView_PreviewMouseWheel;
-            treeView.PreviewTouchDown += treeView_PreviewTouchDown;
-            treeView.PreviewTouchMove += treeView_PreviewTouchMove;
-            treeView.PreviewTouchUp += treeView_PreviewTouchUp;
+            treeView.PreviewMouseWheel += TreeView_PreviewMouseWheel;
+            treeView.PreviewTouchDown += TreeView_PreviewTouchDown;
+            treeView.PreviewTouchMove += TreeView_PreviewTouchMove;
+            treeView.PreviewTouchUp += TreeView_PreviewTouchUp;
         }
 
         void ResultsTree_DataContextChanged(object sender, DependencyPropertyChangedEventArgs e)
         {
-            if (inputData != null && inputData.SelectedNodes != null)
+            if (viewModel != null && viewModel.SelectedNodes != null)
             {
-                inputData.SelectedNodes.CollectionChanged -= SelectedNodes_CollectionChanged;
+                viewModel.SelectedNodes.CollectionChanged -= SelectedNodes_CollectionChanged;
             }
 
-            inputData = (ObservableGrepSearchResults)DataContext;
-            inputData.SelectedNodes.CollectionChanged += SelectedNodes_CollectionChanged;
+            viewModel = (GrepSearchResultsViewModel)DataContext;
+            viewModel.SelectedNodes.CollectionChanged += SelectedNodes_CollectionChanged;
         }
 
-        private void SelectedNodes_CollectionChanged(object sender, NotifyCollectionChangedEventArgs e)
+        private void SelectedNodes_CollectionChanged(object? sender, NotifyCollectionChangedEventArgs e)
         {
             if (e.Action == NotifyCollectionChangedAction.Add ||
                 e.Action == NotifyCollectionChangedAction.Remove ||
@@ -55,53 +57,59 @@ namespace dnGREP.WPF.UserControls
             }
         }
 
-        private void treeView_RequestBringIntoView(object sender, RequestBringIntoViewEventArgs e)
+        private void TreeView_RequestBringIntoView(object sender, RequestBringIntoViewEventArgs e)
         {
             // keep tree view from scrolling horizontally when an item is (mouse) selected
-            var treeViewItem = (TreeViewItem)sender;
-            var scrollViewer = treeView.Template.FindName("_tv_scrollviewer_", treeView) as ScrollViewer;
-
-            Point topLeftInTreeViewCoordinates = treeViewItem.TransformToAncestor(treeView).Transform(new Point(0, 0));
-            var treeViewItemTop = topLeftInTreeViewCoordinates.Y;
-            if (treeViewItemTop < 0 ||
-                treeViewItemTop + treeViewItem.ActualHeight > scrollViewer.ViewportHeight ||
-                treeViewItem.ActualHeight > scrollViewer.ViewportHeight)
+            if (sender is TreeViewItem treeViewItem &&
+                treeView.Template.FindName("_tv_scrollviewer_", treeView) is ScrollViewer scrollViewer)
             {
-                // if the item is not visible or too "tall", don't do anything; let them scroll it into view
-                return;
-            }
+                Point topLeftInTreeViewCoordinates = treeViewItem.TransformToAncestor(treeView).Transform(new Point(0, 0));
+                var treeViewItemTop = topLeftInTreeViewCoordinates.Y;
+                if (treeViewItemTop < 0 ||
+                    treeViewItemTop + treeViewItem.ActualHeight > scrollViewer.ViewportHeight ||
+                    treeViewItem.ActualHeight > scrollViewer.ViewportHeight)
+                {
+                    // if the item is not visible or too "tall", don't do anything; let them scroll it into view
+                    return;
+                }
 
-            // if the item is already fully within the viewport vertically, disallow horizontal scrolling
-            e.Handled = true;
+                // if the item is already fully within the viewport vertically, disallow horizontal scrolling
+                e.Handled = true;
+            }
         }
 
         #region Tree right click events
 
-        private void btnOpenFile_Click(object sender, RoutedEventArgs e)
+        private void BtnOpenFile_Click(object sender, RoutedEventArgs e)
         {
             OpenFiles(false);
         }
 
-        private void btnOpenFileCustomEditor_Click(object sender, RoutedEventArgs e)
+        private void BtnOpenFileCustomEditor_Click(object sender, RoutedEventArgs e)
         {
             OpenFiles(true);
         }
 
-        private void btnOpenContainingFolder_Click(object sender, RoutedEventArgs e)
+        private void BtnOpenContainingFolder_Click(object sender, RoutedEventArgs e)
         {
             OpenFolders();
         }
 
-        private void treeKeyDown(object sender, KeyEventArgs e)
+        private void BtnOpenExplorerMenu_Click(object sender, RoutedEventArgs e)
+        {
+            OpenExplorerMenu();
+        }
+
+        private void TreeKeyDown(object sender, KeyEventArgs e)
         {
             if (e.Key == Key.C && Keyboard.Modifiers.HasFlag(ModifierKeys.Control))
             {
-                if (inputData.HasGrepLineSelection)
+                if (viewModel.HasGrepLineSelection)
                 {
                     CopyGrepLines();
                     e.Handled = true;
                 }
-                else if (inputData.HasGrepResultSelection)
+                else if (viewModel.HasGrepResultSelection)
                 {
                     CopyFileNames(true);
                     e.Handled = true;
@@ -130,19 +138,29 @@ namespace dnGREP.WPF.UserControls
                 Next();
                 e.Handled = true;
             }
+            else if (e.Key == Key.F3 && Keyboard.Modifiers.HasFlag(ModifierKeys.Shift))
+            {
+                NextFile();
+                e.Handled = true;
+            }
             else if (e.Key == Key.F4 && Keyboard.Modifiers == ModifierKeys.None)
             {
                 Previous();
                 e.Handled = true;
             }
-            else if (e.Key == Key.F6 && Keyboard.Modifiers == ModifierKeys.None)
+            else if (e.Key == Key.F4 && Keyboard.Modifiers.HasFlag(ModifierKeys.Shift))
             {
-                btnExpandAll_Click(this, e);
+                PreviousFile();
                 e.Handled = true;
             }
-            else if (e.Key == Key.F6 && Keyboard.Modifiers == ModifierKeys.Shift)
+            else if (e.Key == Key.F6 && Keyboard.Modifiers == ModifierKeys.None)
             {
-                btnCollapseAll_Click(this, e);
+                BtnExpandAll_Click(this, e);
+                e.Handled = true;
+            }
+            else if (e.Key == Key.F6 && Keyboard.Modifiers.HasFlag(ModifierKeys.Shift))
+            {
+                BtnCollapseAll_Click(this, e);
                 e.Handled = true;
             }
         }
@@ -151,7 +169,7 @@ namespace dnGREP.WPF.UserControls
         {
             treeView.DeselectAllChildItems();
 
-            foreach (var item in inputData)
+            foreach (var item in viewModel.SearchResults)
             {
                 item.IsSelected = true;
 
@@ -180,7 +198,7 @@ namespace dnGREP.WPF.UserControls
                 }
 
                 bool isSelecting = false;
-                foreach (var item in inputData.Reverse())
+                foreach (var item in viewModel.SearchResults.Reverse())
                 {
                     if (item == startItem)
                     {
@@ -217,7 +235,7 @@ namespace dnGREP.WPF.UserControls
                 }
 
                 bool isSelecting = false;
-                foreach (var item in inputData)
+                foreach (var item in viewModel.SearchResults)
                 {
                     if (item == startItem)
                     {
@@ -244,7 +262,7 @@ namespace dnGREP.WPF.UserControls
             Application.Current.Dispatcher.BeginInvoke(new Action(() =>
             {
                 treeView.Focus();
-            }), System.Windows.Threading.DispatcherPriority.Render);
+            }), System.Windows.Threading.DispatcherPriority.Normal);
         }
 
         internal async void Next()
@@ -253,6 +271,19 @@ namespace dnGREP.WPF.UserControls
             {
                 Cursor = Cursors.Wait;
                 await NextLineMatch();
+            }
+            finally
+            {
+                Cursor = Cursors.Arrow;
+            }
+        }
+
+        internal async void NextFile()
+        {
+            try
+            {
+                Cursor = Cursors.Wait;
+                await NextFileMatch();
             }
             finally
             {
@@ -273,19 +304,32 @@ namespace dnGREP.WPF.UserControls
             }
         }
 
+        internal async void PreviousFile()
+        {
+            try
+            {
+                Cursor = Cursors.Wait;
+                await PreviousFileMatch();
+            }
+            finally
+            {
+                Cursor = Cursors.Arrow;
+            }
+        }
+
         private async Task NextLineMatch()
         {
-            FormattedGrepResult selectedResult = inputData.SelectedNodes.OfType<FormattedGrepResult>()
+            FormattedGrepResult? selectedResult = viewModel.SelectedNodes.OfType<FormattedGrepResult>()
                 .Where(n => n != null)
                 .LastOrDefault();
-            FormattedGrepLine selectedLine = inputData.SelectedNodes.OfType<FormattedGrepLine>()
+            FormattedGrepLine? selectedLine = viewModel.SelectedNodes.OfType<FormattedGrepLine>()
                 .Where(n => n != null)
                 .OrderBy(n => n.GrepLine.LineNumber)
                 .LastOrDefault();
 
             if (selectedResult == null && selectedLine == null)
             {
-                var firstResult = inputData.FirstOrDefault();
+                var firstResult = viewModel.SearchResults.FirstOrDefault();
                 if (firstResult != null)
                 {
                     await SelectFirstChild(firstResult);
@@ -299,25 +343,53 @@ namespace dnGREP.WPF.UserControls
                     await SelectNextResult(selectedLine);
                 }
             }
-            else
+            else if (selectedResult != null)
             {
                 await SelectFirstChild(selectedResult);
             }
         }
 
+        private async Task NextFileMatch()
+        {
+            FormattedGrepResult? selectedResult = viewModel.SelectedNodes.OfType<FormattedGrepResult>()
+                .Where(n => n != null)
+                .LastOrDefault();
+            FormattedGrepLine? selectedLine = viewModel.SelectedNodes.OfType<FormattedGrepLine>()
+                .Where(n => n != null)
+                .OrderBy(n => n.GrepLine.LineNumber)
+                .LastOrDefault();
+
+            if (selectedResult == null && selectedLine == null)
+            {
+                var firstResult = viewModel.SearchResults.FirstOrDefault();
+                if (firstResult != null)
+                {
+                    await SelectFirstChild(firstResult);
+                }
+            }
+            else if (selectedLine != null)
+            {
+                await SelectNextResult(selectedLine);
+            }
+            else if (selectedResult != null)
+            {
+                await SelectNextResult(selectedResult.FormattedLines.First());
+            }
+        }
+
         private async Task PreviousLineMatch()
         {
-            FormattedGrepResult selectedResult = inputData.SelectedNodes.OfType<FormattedGrepResult>()
+            FormattedGrepResult? selectedResult = viewModel.SelectedNodes.OfType<FormattedGrepResult>()
                 .Where(n => n != null)
                 .FirstOrDefault();
-            FormattedGrepLine selectedLine = inputData.SelectedNodes.OfType<FormattedGrepLine>()
+            FormattedGrepLine? selectedLine = viewModel.SelectedNodes.OfType<FormattedGrepLine>()
                 .Where(n => n != null)
                 .OrderBy(n => n.GrepLine.LineNumber)
                 .FirstOrDefault();
 
             if (selectedResult == null && selectedLine == null)
             {
-                var lastResult = inputData.LastOrDefault();
+                var lastResult = viewModel.SearchResults.LastOrDefault();
                 if (lastResult != null)
                 {
                     await SelectLastChild(lastResult);
@@ -331,16 +403,44 @@ namespace dnGREP.WPF.UserControls
                     await SelectPreviousResult(selectedLine);
                 }
             }
-            else
+            else if (selectedResult != null)
             {
                 await SelectPreviousResult(selectedResult);
             }
         }
 
-        private void btnRenameFile_Click(object sender, RoutedEventArgs e)
+        private async Task PreviousFileMatch()
         {
-            FormattedGrepResult searchResult = null;
-            var node = inputData.SelectedNodes.FirstOrDefault();
+            FormattedGrepResult? selectedResult = viewModel.SelectedNodes.OfType<FormattedGrepResult>()
+                .Where(n => n != null)
+                .FirstOrDefault();
+            FormattedGrepLine? selectedLine = viewModel.SelectedNodes.OfType<FormattedGrepLine>()
+                .Where(n => n != null)
+                .OrderBy(n => n.GrepLine.LineNumber)
+                .FirstOrDefault();
+
+            if (selectedResult == null && selectedLine == null)
+            {
+                var lastResult = viewModel.SearchResults.LastOrDefault();
+                if (lastResult != null)
+                {
+                    await SelectLastChild(lastResult);
+                }
+            }
+            else if (selectedLine != null)
+            {
+                await SelectPreviousResult(selectedLine);
+            }
+            else if (selectedResult != null)
+            {
+                await SelectPreviousResult(selectedResult);
+            }
+        }
+
+        private void BtnRenameFile_Click(object sender, RoutedEventArgs e)
+        {
+            FormattedGrepResult? searchResult = null;
+            var node = viewModel.SelectedNodes.FirstOrDefault();
 
             if (node is FormattedGrepLine lineNode)
             {
@@ -390,7 +490,7 @@ namespace dnGREP.WPF.UserControls
                         catch (Exception ex)
                         {
                             MessageBox.Show(Localization.Properties.Resources.MessageBox_RenameFailed + ex.Message,
-                                Localization.Properties.Resources.MessageBox_DnGrep + "  " + Localization.Properties.Resources.MessageBox_RenameFile,
+                                Localization.Properties.Resources.MessageBox_DnGrep + " " + Localization.Properties.Resources.MessageBox_RenameFile,
                                 MessageBoxButton.OK, MessageBoxImage.Error,
                                 MessageBoxResult.OK, Localization.TranslationSource.Instance.FlowDirection);
                         }
@@ -399,42 +499,200 @@ namespace dnGREP.WPF.UserControls
             }
         }
 
-        private void btnCopyFileNames_Click(object sender, RoutedEventArgs e)
+        private void BtnCopyFiles_Click(object sender, RoutedEventArgs e)
+        {
+            var (files, indexOfFirst) = GetSelectedFiles();
+            if (files.Count > 0)
+            {
+                var fileList = files.Select(f => f.GrepResult).ToList();
+                var (success, message) = FileOperations.CopyFiles(
+                    fileList, viewModel.PathSearchText, null, false);
+            }
+        }
+
+        private void BtnMoveFiles_Click(object sender, RoutedEventArgs e)
+        {
+            var (files, indexOfFirst) = GetSelectedFiles();
+            if (files.Count > 0)
+            {
+                var fileList = files.Select(f => f.GrepResult).ToList();
+                var (success, message) = FileOperations.MoveFiles(
+                    fileList, viewModel.PathSearchText, null, false);
+
+                if (success)
+                {
+                    viewModel.DeselectAllItems();
+                    foreach (var gr in files)
+                    {
+                        viewModel.SearchResults.Remove(gr);
+                    }
+
+                    if (indexOfFirst > -1 && viewModel.SearchResults.Count > 0)
+                    {
+                        // the first item was removed, select the new item in that position
+                        int idx = indexOfFirst;
+                        if (idx >= viewModel.SearchResults.Count) idx = viewModel.SearchResults.Count - 1;
+
+                        var nextResult = viewModel.SearchResults[idx];
+                        var tvi = GetTreeViewItem(treeView, nextResult, null, SearchDirection.Down, 1);
+                        if (tvi != null)
+                        {
+                            tvi.IsSelected = false;
+                            tvi.IsSelected = true;
+                        }
+                    }
+                }
+            }
+        }
+
+        private void BtnDeleteFiles_Click(object sender, RoutedEventArgs e)
+        {
+            var (files, indexOfFirst) = GetSelectedFiles();
+            if (files.Count > 0)
+            {
+                var fileList = files.Select(f => f.GrepResult).ToList();
+                var (success, message) = FileOperations.DeleteFiles(
+                    fileList, false, false);
+
+                if (success)
+                {
+                    viewModel.DeselectAllItems();
+                    foreach (var gr in files)
+                    {
+                        viewModel.SearchResults.Remove(gr);
+                    }
+
+                    if (indexOfFirst > -1 && viewModel.SearchResults.Count > 0)
+                    {
+                        // the first item was removed, select the new item in that position
+                        int idx = indexOfFirst;
+                        if (idx >= viewModel.SearchResults.Count) idx = viewModel.SearchResults.Count - 1;
+
+                        var nextResult = viewModel.SearchResults[idx];
+                        var tvi = GetTreeViewItem(treeView, nextResult, null, SearchDirection.Down, 1);
+                        if (tvi != null)
+                        {
+                            tvi.IsSelected = false;
+                            tvi.IsSelected = true;
+                        }
+                    }
+                }
+            }
+        }
+
+        private void BtnRecycleFiles_Click(object sender, RoutedEventArgs e)
+        {
+            var (files, indexOfFirst) = GetSelectedFiles();
+            viewModel.DeselectAllItems();
+            foreach (var gr in files)
+            {
+                FileSystem.DeleteFile(gr.GrepResult.FileNameReal,
+                    UIOption.OnlyErrorDialogs,
+                    RecycleOption.SendToRecycleBin);
+
+
+                viewModel.SearchResults.Remove(gr);
+            }
+
+            if (indexOfFirst > -1 && viewModel.SearchResults.Count > 0)
+            {
+                // the first item was removed, select the new item in that position
+                int idx = indexOfFirst;
+                if (idx >= viewModel.SearchResults.Count) idx = viewModel.SearchResults.Count - 1;
+
+                var nextResult = viewModel.SearchResults[idx];
+                var tvi = GetTreeViewItem(treeView, nextResult, null, SearchDirection.Down, 1);
+                if (tvi != null)
+                {
+                    tvi.IsSelected = false;
+                    tvi.IsSelected = true;
+                }
+            }
+        }
+
+        private (IList<FormattedGrepResult> files, int indexOfFirst) GetSelectedFiles()
+        {
+            // get the unique set of files from the selections
+            List<FormattedGrepResult> files = new();
+            int indexOfFirst = -1;
+            foreach (var item in viewModel.SelectedItems)
+            {
+                if (item is FormattedGrepResult fileNode)
+                {
+                    string name = fileNode.GrepResult.FileNameReal;
+                    if (!files.Any(gr => gr.GrepResult.FileNameReal.Equals(name, StringComparison.Ordinal)) && File.Exists(name))
+                    {
+                        files.Add(fileNode);
+                    }
+                }
+                if (item is FormattedGrepLine lineNode)
+                {
+                    string name = lineNode.Parent.GrepResult.FileNameReal;
+                    if (!files.Any(gr => gr.GrepResult.FileNameReal.Equals(name, StringComparison.Ordinal)) && File.Exists(name))
+                    {
+                        files.Add(lineNode.Parent);
+                    }
+                }
+
+                if (files.Count == 1)
+                {
+                    indexOfFirst = viewModel.SearchResults.IndexOf(files.First());
+                }
+            }
+            return (files, indexOfFirst);
+        }
+
+        private void BtnCopyFileNames_Click(object sender, RoutedEventArgs e)
         {
             CopyFileNames(false);
         }
 
-        private void btnCopyFullFilePath_Click(object sender, RoutedEventArgs e)
+        private void BtnCopyFullFilePath_Click(object sender, RoutedEventArgs e)
         {
             CopyFileNames(true);
         }
 
-        private void btnCopyGrepLine_Click(object sender, RoutedEventArgs e)
+        private void BtnCopyGrepLine_Click(object sender, RoutedEventArgs e)
         {
             CopyGrepLines();
         }
 
-        private void btnShowFileProperties_Click(object sender, RoutedEventArgs e)
+        private void BtnShowFileProperties_Click(object sender, RoutedEventArgs e)
         {
             ShowFileProperties();
         }
 
-        private void btnExclude_Click(object sender, RoutedEventArgs e)
+        private void BtnMakeWritable_Click(object sender, RoutedEventArgs e)
+        {
+            MakeFilesWritable();
+        }
+
+        private void BtnExclude_Click(object sender, RoutedEventArgs e)
         {
             ExcludeLines();
         }
 
-        private void btnNextMatch_Click(object sender, RoutedEventArgs e)
+        private void BtnNextMatch_Click(object sender, RoutedEventArgs e)
         {
             Next();
         }
 
-        private void btnPreviousMatch_Click(object sender, RoutedEventArgs e)
+        private void BtnNextFile_Click(object sender, RoutedEventArgs e)
+        {
+            NextFile();
+        }
+
+        private void BtnPreviousMatch_Click(object sender, RoutedEventArgs e)
         {
             Previous();
         }
 
-        private async void btnExpandAll_Click(object sender, RoutedEventArgs e)
+        private void BtnPreviousFile_Click(object sender, RoutedEventArgs e)
+        {
+            PreviousFile();
+        }
+
+        private async void BtnExpandAll_Click(object sender, RoutedEventArgs e)
         {
             foreach (FormattedGrepResult result in treeView.Items)
             {
@@ -442,7 +700,7 @@ namespace dnGREP.WPF.UserControls
             }
         }
 
-        private void btnCollapseAll_Click(object sender, RoutedEventArgs e)
+        private void BtnCollapseAll_Click(object sender, RoutedEventArgs e)
         {
             foreach (FormattedGrepResult result in treeView.Items)
             {
@@ -456,10 +714,10 @@ namespace dnGREP.WPF.UserControls
             // keep the first record from each file to use when opening the file
             // prefer to open by line, if any line is selected; otherwise by file
 
-            List<string> fileNames = new List<string>();
-            List<FormattedGrepLine> lines = new List<FormattedGrepLine>();
-            List<FormattedGrepResult> files = new List<FormattedGrepResult>();
-            foreach (var item in inputData.SelectedItems)
+            List<string> fileNames = new();
+            List<FormattedGrepLine> lines = new();
+            List<FormattedGrepResult> files = new();
+            foreach (var item in viewModel.SelectedItems)
             {
                 if (item is FormattedGrepLine lineNode)
                 {
@@ -472,7 +730,7 @@ namespace dnGREP.WPF.UserControls
                 }
             }
 
-            foreach (var item in inputData.SelectedItems)
+            foreach (var item in viewModel.SelectedItems)
             {
                 if (item is FormattedGrepResult fileNode)
                 {
@@ -486,10 +744,10 @@ namespace dnGREP.WPF.UserControls
             }
 
             foreach (var item in lines)
-                inputData.OpenFile(item, useCustomEditor);
+                viewModel.OpenFile(item, useCustomEditor);
 
             foreach (var item in files)
-                inputData.OpenFile(item, useCustomEditor);
+                viewModel.OpenFile(item, useCustomEditor);
         }
 
         private void OpenFolders()
@@ -497,15 +755,15 @@ namespace dnGREP.WPF.UserControls
             // get the unique set of folders from the selections
             // keep the first file from each folder to open the folder
 
-            List<string> folders = new List<string>();
-            List<string> files = new List<string>();
-            foreach (var item in inputData.SelectedItems)
+            List<string> folders = new();
+            List<string> files = new();
+            foreach (var item in viewModel.SelectedItems)
             {
                 if (item is FormattedGrepResult fileNode)
                 {
                     string name = fileNode.GrepResult.FileNameReal;
-                    string path = Path.GetDirectoryName(name);
-                    if (!folders.Contains(path))
+                    string? path = Path.GetDirectoryName(name);
+                    if (!string.IsNullOrEmpty(path) && !folders.Contains(path))
                     {
                         folders.Add(path);
                         files.Add(name);
@@ -514,8 +772,8 @@ namespace dnGREP.WPF.UserControls
                 if (item is FormattedGrepLine lineNode)
                 {
                     string name = lineNode.Parent.GrepResult.FileNameReal;
-                    string path = Path.GetDirectoryName(name);
-                    if (!folders.Contains(path))
+                    string? path = Path.GetDirectoryName(name);
+                    if (!string.IsNullOrEmpty(path) && !folders.Contains(path))
                     {
                         folders.Add(path);
                         files.Add(name);
@@ -527,11 +785,43 @@ namespace dnGREP.WPF.UserControls
                 Utils.OpenContainingFolder(fileName);
         }
 
+        private void OpenExplorerMenu()
+        {
+            // get the unique set of files from the selections
+            List<string> files = new();
+            foreach (var item in viewModel.SelectedItems)
+            {
+                if (item is FormattedGrepResult fileNode)
+                {
+                    string name = fileNode.GrepResult.FileNameReal;
+                    if (!files.Contains(name) && File.Exists(name))
+                    {
+                        files.Add(name);
+                    }
+                }
+                if (item is FormattedGrepLine lineNode)
+                {
+                    string name = lineNode.Parent.GrepResult.FileNameReal;
+                    if (!files.Contains(name) && File.Exists(name))
+                    {
+                        files.Add(name);
+                    }
+                }
+            }
+
+            if (files.Count > 0)
+            {
+                ShellContextMenu menu = new();
+                menu.ShowContextMenu(files.Select(f => new FileInfo(f)).ToArray(),
+                    PointToScreen(Mouse.GetPosition(this)));
+            }
+        }
+
         private void ShowFileProperties()
         {
             // get the unique set of files from the selections
-            List<string> files = new List<string>();
-            foreach (var item in inputData.SelectedItems)
+            List<string> files = new();
+            foreach (var item in viewModel.SelectedItems)
             {
                 if (item is FormattedGrepResult fileNode)
                 {
@@ -557,8 +847,8 @@ namespace dnGREP.WPF.UserControls
 
         private IList<string> GetSelectedFileNames(bool showFullName)
         {
-            List<string> list = new List<string>();
-            foreach (var item in inputData.SelectedItems)
+            List<string> list = new();
+            foreach (var item in viewModel.SelectedItems)
             {
                 if (item is FormattedGrepResult fileNode)
                 {
@@ -591,10 +881,10 @@ namespace dnGREP.WPF.UserControls
 
         private string GetSelectedGrepLineText()
         {
-            if (inputData.HasGrepLineSelection)
+            if (viewModel.HasGrepLineSelection)
             {
-                StringBuilder sb = new StringBuilder();
-                foreach (var item in inputData.SelectedItems)
+                StringBuilder sb = new();
+                foreach (var item in viewModel.SelectedItems)
                 {
                     if (item is FormattedGrepLine node)
                     {
@@ -614,10 +904,10 @@ namespace dnGREP.WPF.UserControls
                 NativeMethods.SetClipboardText(lines);
         }
 
-        private void ExcludeLines()
+        private void MakeFilesWritable()
         {
-            List<FormattedGrepResult> files = new List<FormattedGrepResult>();
-            foreach (var item in inputData.SelectedItems)
+            List<FormattedGrepResult> files = new();
+            foreach (var item in viewModel.SelectedItems)
             {
                 if (item is FormattedGrepLine lineNode)
                 {
@@ -637,10 +927,71 @@ namespace dnGREP.WPF.UserControls
             }
 
             foreach (var item in files)
-                inputData.Remove(item);
+            {
+                if (File.Exists(item.GrepResult.FileNameReal))
+                {
+                    var info = new FileInfo(item.GrepResult.FileNameReal);
+                    if (info.IsReadOnly)
+                    {
+                        info.IsReadOnly = false;
+                        item.SetLabel();
+                    }
+                }
+            }
         }
 
-        private void treeView_MouseDown(object sender, MouseButtonEventArgs e)
+        private void ExcludeLines()
+        {
+            List<FormattedGrepResult> files = new();
+            int indexOfFirst = -1;
+            foreach (var item in viewModel.SelectedItems)
+            {
+                if (item is FormattedGrepLine lineNode)
+                {
+                    var grepResult = lineNode.Parent;
+                    if (!files.Contains(grepResult))
+                    {
+                        files.Add(grepResult);
+                    }
+                }
+                if (item is FormattedGrepResult fileNode)
+                {
+                    if (!files.Contains(fileNode))
+                    {
+                        files.Add(fileNode);
+                    }
+                }
+
+                if (files.Count == 1)
+                {
+                    indexOfFirst = viewModel.SearchResults.IndexOf(files.First());
+                }
+            }
+
+            viewModel.DeselectAllItems();
+
+            foreach (var item in files)
+            {
+                viewModel.SearchResults.Remove(item);
+            }
+
+            if (indexOfFirst > -1 && viewModel.SearchResults.Count > 0)
+            {
+                // the first item was removed, select the new item in that position
+                int idx = indexOfFirst;
+                if (idx >= viewModel.SearchResults.Count) idx = viewModel.SearchResults.Count - 1;
+
+                var nextResult = viewModel.SearchResults[idx];
+                var tvi = GetTreeViewItem(treeView, nextResult, null, SearchDirection.Down, 1);
+                if (tvi != null)
+                {
+                    tvi.IsSelected = false;
+                    tvi.IsSelected = true;
+                }
+            }
+        }
+
+        private void TreeView_MouseDown(object sender, MouseButtonEventArgs e)
         {
             if (sender is TreeViewItem item)
             {
@@ -649,11 +1000,50 @@ namespace dnGREP.WPF.UserControls
             }
         }
 
-        private void treeView_MouseDoubleClick(object sender, MouseButtonEventArgs e)
+        private void TreeView_MouseUp(object sender, MouseButtonEventArgs e)
         {
-            if (treeView.SelectedItem is FormattedGrepLine && (e.OriginalSource is TextBlock || e.OriginalSource is Run))
+            // middle button click on a file node or line node opens file with custom editor
+            if (e.ChangedButton == MouseButton.Middle)
             {
-                inputData.OpenFile(treeView.SelectedItem as FormattedGrepLine, GrepSettings.Instance.IsSet(GrepSettings.Key.CustomEditor));
+                if (treeView.SelectedItem is FormattedGrepResult file)
+                {
+                    viewModel.OpenFile(file, GrepSettings.Instance.IsSet(GrepSettings.Key.CustomEditor));
+                }
+                else if (treeView.SelectedItem is FormattedGrepLine line)
+                {
+                    viewModel.OpenFile(line, GrepSettings.Instance.IsSet(GrepSettings.Key.CustomEditor));
+                }
+                e.Handled = true;
+            }
+        }
+
+        private void TreeView_PreviewMouseDoubleClick(object sender, MouseButtonEventArgs e)
+        {
+            // alt+double click on a file node or line node opens file with associated application
+            if (Keyboard.Modifiers.HasFlag(ModifierKeys.Alt))
+            {
+                if (treeView.SelectedItem is FormattedGrepResult fileNode)
+                {
+                    viewModel.OpenFile(fileNode, false);
+                }
+                else if (treeView.SelectedItem is FormattedGrepLine line)
+                {
+                    viewModel.OpenFile(line, false);
+                }
+                e.Handled = true;
+            }
+        }
+
+        private void TreeView_MouseDoubleClick(object sender, MouseButtonEventArgs e)
+        {
+            // double click on a line node opens file
+            if (treeView.SelectedItem is FormattedGrepLine line && 
+                (e.OriginalSource is TextBlock || e.OriginalSource is Run))
+            {
+                bool useCustomEditor = !Keyboard.Modifiers.HasFlag(ModifierKeys.Alt) &&
+                    GrepSettings.Instance.IsSet(GrepSettings.Key.CustomEditor);
+                viewModel.OpenFile(line, useCustomEditor);
+                e.Handled = true;
             }
         }
 
@@ -663,12 +1053,36 @@ namespace dnGREP.WPF.UserControls
 
             var rect = new System.Drawing.RectangleF { Height = (float)parentWindow.ActualHeight, Width = (float)parentWindow.ActualWidth, X = (float)parentWindow.Left, Y = (float)parentWindow.Top };
 
-            if (inputData.SelectedNodes is IList items && items.Count > 0)
+            bool lineSelectionRaised = false;
+            if (viewModel.SelectedNodes is IList items && items.Count > 0)
             {
-                if (items[0] is FormattedGrepLine)
-                    inputData.PreviewFile(items[0] as FormattedGrepLine, rect);
-                else if (items[0] is FormattedGrepResult)
-                    inputData.PreviewFile(items[0] as FormattedGrepResult, rect);
+                if (items[0] is FormattedGrepLine formattedGrepLine)
+                {
+                    if (items.Count == 1)
+                    {
+                        var lineNumber = formattedGrepLine.GrepLine.LineNumber;
+                        var lineMatches = formattedGrepLine.GrepLine.Matches;
+                        var fileMatches = formattedGrepLine.Parent.GrepResult.Matches;
+                        if (lineMatches.Count > 0)
+                        {
+                            var id = lineMatches[0].FileMatchId;
+                            var matchOrdinal = 1 + fileMatches.IndexOf(m => m.FileMatchId == id);
+                            viewModel.OnGrepLineSelectionChanged(formattedGrepLine, lineMatches.Count, matchOrdinal, fileMatches.Count);
+                            lineSelectionRaised = true;
+                        }
+                    }
+
+                    viewModel.PreviewFile(formattedGrepLine, rect);
+                }
+                else if (items[0] is FormattedGrepResult formattedGrepResult)
+                {
+                    viewModel.PreviewFile(formattedGrepResult, rect);
+                }
+            }
+
+            if (!lineSelectionRaised)
+            {
+                viewModel.OnGrepLineSelectionChanged(null, 0, -1, 0);
             }
         }
 
@@ -676,9 +1090,9 @@ namespace dnGREP.WPF.UserControls
 
         #region Zoom
 
-        private Dictionary<int, Point> touchIds = new Dictionary<int, Point>();
+        private readonly Dictionary<int, Point> touchIds = new();
 
-        private void treeView_PreviewTouchDown(object sender, TouchEventArgs e)
+        private void TreeView_PreviewTouchDown(object? sender, TouchEventArgs e)
         {
             if (sender is IInputElement ctrl && !touchIds.ContainsKey(e.TouchDevice.Id))
             {
@@ -687,130 +1101,128 @@ namespace dnGREP.WPF.UserControls
             }
         }
 
-        private void treeView_PreviewTouchUp(object sender, TouchEventArgs e)
+        private void TreeView_PreviewTouchUp(object? sender, TouchEventArgs e)
         {
-            if (touchIds.ContainsKey(e.TouchDevice.Id))
-                touchIds.Remove(e.TouchDevice.Id);
+            touchIds.Remove(e.TouchDevice.Id);
         }
 
-        private void treeView_PreviewTouchMove(object sender, TouchEventArgs e)
+        private void TreeView_PreviewTouchMove(object? sender, TouchEventArgs e)
         {
-            IInputElement ctrl = sender as IInputElement;
-
-            // sometimes a PreviewTouchUp event is lost when the user is on the scrollbar or edge of the window
-            // if our captured touches do not match the scrollviewer, resynch to the scrollviewer
-            if (e.OriginalSource is ScrollViewer scrollViewer)
+            if (sender is IInputElement ctrl)
             {
-                var svTouches = scrollViewer.TouchesCaptured.Select(t => t.Id);
-                var myTouches = touchIds.Keys.Select(k => k);
-                bool equal = svTouches.OrderBy(i => i).SequenceEqual(myTouches.OrderBy(i => i));
-
-                if (!equal)
+                // sometimes a PreviewTouchUp event is lost when the user is on the scrollbar or edge of the window
+                // if our captured touches do not match the scrollviewer, resynch to the scrollviewer
+                if (e.OriginalSource is ScrollViewer scrollViewer)
                 {
-                    touchIds.Clear();
-                    foreach (var t in scrollViewer.TouchesCaptured)
+                    var svTouches = scrollViewer.TouchesCaptured.Select(t => t.Id);
+                    var myTouches = touchIds.Keys.Select(k => k);
+                    bool equal = svTouches.OrderBy(i => i).SequenceEqual(myTouches.OrderBy(i => i));
+
+                    if (!equal)
                     {
-                        var pt = t.GetTouchPoint(ctrl).Position;
-                        touchIds.Add(t.Id, pt);
+                        touchIds.Clear();
+                        foreach (var t in scrollViewer.TouchesCaptured)
+                        {
+                            var pt = t.GetTouchPoint(ctrl).Position;
+                            touchIds.Add(t.Id, pt);
+                        }
                     }
                 }
-            }
 
-            if (inputData != null && inputData.Count > 0 &&
-                ctrl != null && touchIds.ContainsKey(e.TouchDevice.Id) && touchIds.Count == 2)
-            {
-                var pNew = e.GetTouchPoint(ctrl).Position;
-
-                var otherTouchId = touchIds.Keys.Where(k => k != e.TouchDevice.Id).FirstOrDefault();
-                var p0 = touchIds[otherTouchId];
-                var p1 = touchIds[e.TouchDevice.Id];
-
-                var dx = p1.X - p0.X;
-                var dy = p1.Y - p0.Y;
-                var dist1 = dx * dx + dy * dy;
-
-                dx = pNew.X - p0.X;
-                dy = pNew.Y - p0.Y;
-                var dist2 = dx * dx + dy * dy;
-
-                if (Math.Abs(dist2 - dist1) > 200)
+                if (viewModel != null && viewModel.SearchResults.Count > 0 &&
+                    touchIds.ContainsKey(e.TouchDevice.Id) && touchIds.Count == 2)
                 {
-                    if (dist1 < dist2 && inputData.ResultsScale < 2.0)
+                    var pNew = e.GetTouchPoint(ctrl).Position;
+
+                    var otherTouchId = touchIds.Keys.Where(k => k != e.TouchDevice.Id).FirstOrDefault();
+                    var p0 = touchIds[otherTouchId];
+                    var p1 = touchIds[e.TouchDevice.Id];
+
+                    var dx = p1.X - p0.X;
+                    var dy = p1.Y - p0.Y;
+                    var dist1 = dx * dx + dy * dy;
+
+                    dx = pNew.X - p0.X;
+                    dy = pNew.Y - p0.Y;
+                    var dist2 = dx * dx + dy * dy;
+
+                    if (Math.Abs(dist2 - dist1) > 200)
                     {
-                        inputData.ResultsScale *= 1.005;
+                        if (dist1 < dist2 && viewModel.ResultsScale < 2.0)
+                        {
+                            viewModel.ResultsScale *= 1.005;
+                        }
+
+                        if (dist1 > dist2 && viewModel.ResultsScale > 0.8)
+                        {
+                            viewModel.ResultsScale /= 1.005;
+                        }
+
+                        e.Handled = true;
                     }
 
-                    if (dist1 > dist2 && inputData.ResultsScale > 0.8)
-                    {
-                        inputData.ResultsScale /= 1.005;
-                    }
-
-                    e.Handled = true;
+                    // and update position for this touch
+                    touchIds[e.TouchDevice.Id] = pNew;
                 }
-
-                // and update position for this touch
-                touchIds[e.TouchDevice.Id] = pNew;
             }
         }
 
-        private void treeView_PreviewMouseWheel(object sender, MouseWheelEventArgs e)
+        private void TreeView_PreviewMouseWheel(object sender, MouseWheelEventArgs e)
         {
-            bool handle = (Keyboard.Modifiers & ModifierKeys.Control) > 0 &&
-                inputData != null && inputData.Count > 0;
-
+            bool handle = (Keyboard.Modifiers & ModifierKeys.Control) > 0 && viewModel.SearchResults.Count > 0;
             if (!handle)
                 return;
 
-            if (e.Delta > 0 && inputData.ResultsScale < 2.0)
+            if (e.Delta > 0 && viewModel.ResultsScale < 2.0)
             {
-                inputData.ResultsScale *= 1.05;
+                viewModel.ResultsScale *= 1.05;
             }
 
-            if (e.Delta < 0 && inputData.ResultsScale > 0.8)
+            if (e.Delta < 0 && viewModel.ResultsScale > 0.8)
             {
-                inputData.ResultsScale /= 1.05;
+                viewModel.ResultsScale /= 1.05;
             }
 
             e.Handled = true;
         }
 
-        private void btnResetZoom_Click(object sender, RoutedEventArgs e)
+        private void BtnResetZoom_Click(object sender, RoutedEventArgs e)
         {
-            if (inputData != null)
+            if (viewModel != null)
             {
-                inputData.ResultsScale = 1.0;
+                viewModel.ResultsScale = 1.0;
             }
         }
 
         #endregion
 
         #region DragDropEvents
-        private static UIElement _draggedElt;
+        private static UIElement? _draggedElt;
         private static bool _isMouseDown = false;
         private static System.Windows.Point _dragStartPoint;
 
-        private void treeView_PreviewMouseLeftButtonDown(object sender, MouseButtonEventArgs e)
+        private void TreeView_PreviewMouseLeftButtonDown(object sender, MouseButtonEventArgs e)
         {
             // Make this the new drag source
             _draggedElt = e.Source as UIElement;
-            _dragStartPoint = e.GetPosition(getTopContainer());
+            _dragStartPoint = e.GetPosition(GetTopContainer());
             _isMouseDown = true;
         }
 
-        private void treeView_PreviewMouseMove(object sender, MouseEventArgs e)
+        private void TreeView_PreviewMouseMove(object sender, MouseEventArgs e)
         {
-            if (_isMouseDown && isDragGesture(e.GetPosition(getTopContainer())))
+            if (sender is UIElement uiElt && _isMouseDown && IsDragGesture(e.GetPosition(GetTopContainer())))
             {
-                treeDragStarted(sender as UIElement);
+                TreeDragStarted(uiElt);
             }
         }
 
-        private void treeDragStarted(UIElement uiElt)
+        private void TreeDragStarted(UIElement uiElt)
         {
             _isMouseDown = false;
             Mouse.Capture(uiElt);
 
-            DataObject data = new DataObject();
+            DataObject data = new();
             // set this data format to prevent dropping onto our own main window
             data.SetData(App.InstanceId, string.Empty);
 
@@ -820,10 +1232,10 @@ namespace dnGREP.WPF.UserControls
             {
                 data.SetData(DataFormats.Text, lines);
             }
-            else if (inputData.HasGrepResultSelection)
+            else if (viewModel.HasGrepResultSelection)
             {
                 var list = GetSelectedFileNames(true);
-                StringCollection files = new StringCollection();
+                StringCollection files = new();
                 files.AddRange(list.ToArray());
                 data.SetFileDropList(files);
             }
@@ -837,15 +1249,15 @@ namespace dnGREP.WPF.UserControls
             _draggedElt = null;
         }
 
-        private bool isDragGesture(Point point)
+        private static bool IsDragGesture(Point point)
         {
             bool hGesture = Math.Abs(point.X - _dragStartPoint.X) > SystemParameters.MinimumHorizontalDragDistance;
             bool vGesture = Math.Abs(point.Y - _dragStartPoint.Y) > SystemParameters.MinimumVerticalDragDistance;
 
-            return (hGesture | vGesture);
+            return hGesture | vGesture;
         }
 
-        private UIElement getTopContainer()
+        private static UIElement? GetTopContainer()
         {
             return Application.Current.MainWindow.Content as UIElement;
         }
@@ -876,10 +1288,10 @@ namespace dnGREP.WPF.UserControls
         private async Task SelectNextResult(FormattedGrepLine currentLine)
         {
             var grepResult = currentLine.Parent;
-            int idx = inputData.IndexOf(grepResult) + 1;
-            if (idx >= inputData.Count) idx = 0;
+            int idx = viewModel.SearchResults.IndexOf(grepResult) + 1;
+            if (idx >= viewModel.SearchResults.Count) idx = 0;
 
-            var nextResult = inputData[idx];
+            var nextResult = viewModel.SearchResults[idx];
             await SelectFirstChild(nextResult);
         }
 
@@ -927,20 +1339,20 @@ namespace dnGREP.WPF.UserControls
 
         private async Task SelectPreviousResult(FormattedGrepResult result)
         {
-            int idx = inputData.IndexOf(result) - 1;
-            if (idx < 0) idx = inputData.Count - 1;
+            int idx = viewModel.SearchResults.IndexOf(result) - 1;
+            if (idx < 0) idx = viewModel.SearchResults.Count - 1;
 
-            var previousResult = inputData[idx];
+            var previousResult = viewModel.SearchResults[idx];
             await SelectLastChild(previousResult);
         }
 
         private async Task SelectPreviousResult(FormattedGrepLine currentLine)
         {
             var grepResult = currentLine.Parent;
-            int idx = inputData.IndexOf(grepResult) - 1;
-            if (idx < 0) idx = inputData.Count - 1;
+            int idx = viewModel.SearchResults.IndexOf(grepResult) - 1;
+            if (idx < 0) idx = viewModel.SearchResults.Count - 1;
 
-            var previousResult = inputData[idx];
+            var previousResult = viewModel.SearchResults[idx];
             await SelectLastChild(previousResult);
         }
 
@@ -981,7 +1393,7 @@ namespace dnGREP.WPF.UserControls
         /// <returns>
         /// The TreeViewItem that contains the specified item.
         /// </returns>
-        private static TreeViewItem GetTreeViewItem(ItemsControl container, object item, object selectedItem, SearchDirection dir, int depth)
+        private static TreeViewItem? GetTreeViewItem(ItemsControl container, object item, object? selectedItem, SearchDirection dir, int depth)
         {
             if (container != null)
             {
@@ -995,7 +1407,7 @@ namespace dnGREP.WPF.UserControls
                 }
 
                 // Expand the current container
-                if (container is TreeViewItem && !((TreeViewItem)container).IsExpanded)
+                if (container is TreeViewItem item1 && !item1.IsExpanded)
                 {
                     container.SetValue(TreeViewItem.IsExpandedProperty, true);
                 }
@@ -1007,7 +1419,7 @@ namespace dnGREP.WPF.UserControls
                 // regenerate the visuals because they may have been virtualized away.
 
                 container.ApplyTemplate();
-                ItemsPresenter itemsPresenter =
+                ItemsPresenter? itemsPresenter =
                     (ItemsPresenter)container.Template.FindName("ItemsHost", container);
                 if (itemsPresenter != null)
                 {
@@ -1058,18 +1470,16 @@ namespace dnGREP.WPF.UserControls
                         subContainer =
                             (TreeViewItem)container.ItemContainerGenerator.
                             ContainerFromIndex(idx);
-                        if (subContainer != null)
-                        {
-                            // Bring the item into view to maintain the
-                            // same behavior as with a virtualizing panel.
-                            subContainer.BringIntoView();
-                        }
+
+                        // Bring the item into view to maintain the
+                        // same behavior as with a virtualizing panel.
+                        subContainer?.BringIntoView();
                     }
 
                     if (subContainer != null)
                     {
                         // Search the next level for the object.
-                        TreeViewItem resultContainer = GetTreeViewItem(subContainer, item, selectedItem, dir, depth - 1);
+                        TreeViewItem? resultContainer = GetTreeViewItem(subContainer, item, selectedItem, dir, depth - 1);
                         if (resultContainer != null)
                         {
                             return resultContainer;
@@ -1093,7 +1503,7 @@ namespace dnGREP.WPF.UserControls
         /// <typeparam name="T">The type of element to find.</typeparam>
         /// <param name="visual">The parent element.</param>
         /// <returns></returns>
-        private static T FindVisualChild<T>(Visual visual) where T : Visual
+        private static T? FindVisualChild<T>(Visual visual) where T : Visual
         {
             for (int i = 0; i < VisualTreeHelper.GetChildrenCount(visual); i++)
             {
@@ -1105,7 +1515,7 @@ namespace dnGREP.WPF.UserControls
                         return correctlyTyped;
                     }
 
-                    T descendent = FindVisualChild<T>(child);
+                    T? descendent = FindVisualChild<T>(child);
                     if (descendent != null)
                     {
                         return descendent;
@@ -1127,9 +1537,9 @@ namespace dnGREP.WPF.UserControls
             return -1;
         }
 
-        private static TreeViewItem GetTreeViewItemParent(TreeView treeView, object item)
+        private static TreeViewItem? GetTreeViewItemParent(TreeView treeView, object item)
         {
-            TreeViewItem treeViewItem = ContainerFromItemRecursive(treeView.ItemContainerGenerator, item);
+            TreeViewItem? treeViewItem = ContainerFromItemRecursive(treeView.ItemContainerGenerator, item);
             if (treeViewItem != null)
             {
                 DependencyObject parent = VisualTreeHelper.GetParent(treeViewItem);
@@ -1152,13 +1562,14 @@ namespace dnGREP.WPF.UserControls
         //    return null;
         //}
 
-        private static TreeViewItem ContainerFromItemRecursive(ItemContainerGenerator root, object item)
+        private static TreeViewItem? ContainerFromItemRecursive(ItemContainerGenerator root, object item)
         {
-            if (root.ContainerFromItem(item) is TreeViewItem treeViewItem)
+            if (root.ContainerFromItem(item) is TreeViewItem tvItem)
             {
-                return treeViewItem;
+                return tvItem;
             }
 
+            TreeViewItem? treeViewItem;
             foreach (var subItem in root.Items)
             {
                 treeViewItem = root.ContainerFromItem(subItem) as TreeViewItem;

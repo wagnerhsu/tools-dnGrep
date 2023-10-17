@@ -7,6 +7,7 @@ using System.Windows;
 using System.Windows.Documents;
 using System.Windows.Media;
 using System.Xml;
+using CommunityToolkit.Mvvm.ComponentModel;
 using dnGREP.Common;
 using dnGREP.Engines;
 using dnGREP.Localization;
@@ -14,27 +15,48 @@ using Resources = dnGREP.Localization.Properties.Resources;
 
 namespace dnGREP.WPF
 {
-    public class TestPatternViewModel : BaseMainViewModel
+    public partial class TestPatternViewModel : BaseMainViewModel
     {
         private bool hasMatches;
         private int searchHash;
         private int replaceHash;
-        private List<GrepSearchResult> grepResults = new List<GrepSearchResult>();
-        private readonly string horizontalBar = new string(char.ConvertFromUtf32(0x2015)[0], 80);
+        private List<GrepSearchResult> grepResults = new();
+        private readonly string horizontalBar = new(char.ConvertFromUtf32(0x2015)[0], 80);
+        private readonly int hexLineSize = GrepSettings.Instance.Get<int>(GrepSettings.Key.HexResultByteLength);
 
         public TestPatternViewModel()
         {
             ApplicationFontFamily = GrepSettings.Instance.Get<string>(GrepSettings.Key.ApplicationFontFamily);
             DialogFontSize = GrepSettings.Instance.Get<double>(GrepSettings.Key.DialogFontSize);
+            ResultsFontFamily = GrepSettings.Instance.Get<string>(GrepSettings.Key.ResultsFontFamily);
+            ResultsFontSize = GrepSettings.Instance.Get<double>(GrepSettings.Key.ResultsFontSize);
         }
+
+        [ObservableProperty]
+        private static string sampleText = string.Empty;
+
+        [ObservableProperty]
+        private bool isReplaceReadOnly;
+
+        [ObservableProperty]
+        private InlineCollection? searchOutput;
+
+        [ObservableProperty]
+        private InlineCollection? replaceOutput;
+
+        [ObservableProperty]
+        private string replaceOutputText = string.Empty;
+
+        [ObservableProperty]
+        private string replaceErrorText = string.Empty;
 
         private int GetSearchHash()
         {
             unchecked
             {
                 int hashCode = 13;
-                hashCode = (hashCode * 397) ^ SampleText?.GetHashCode() ?? 5;
-                hashCode = (hashCode * 397) ^ SearchFor?.GetHashCode() ?? 5;
+                hashCode = (hashCode * 397) ^ SampleText?.GetHashCode(StringComparison.Ordinal) ?? 5;
+                hashCode = (hashCode * 397) ^ SearchFor?.GetHashCode(StringComparison.Ordinal) ?? 5;
                 hashCode = (hashCode * 397) ^ TypeOfSearch.GetHashCode();
                 hashCode = (hashCode * 397) ^ CaseSensitive.GetHashCode();
                 hashCode = (hashCode * 397) ^ WholeWord.GetHashCode();
@@ -51,7 +73,7 @@ namespace dnGREP.WPF
             unchecked
             {
                 int hashCode = GetSearchHash();
-                hashCode = (hashCode * 397) ^ ReplaceWith?.GetHashCode() ?? 5;
+                hashCode = (hashCode * 397) ^ ReplaceWith?.GetHashCode(StringComparison.Ordinal) ?? 5;
                 return hashCode;
             }
         }
@@ -62,7 +84,7 @@ namespace dnGREP.WPF
 
             if (name == nameof(HighlightCaptureGroups))
             {
-                settings.Set(GrepSettings.Key.HighlightCaptureGroups, HighlightCaptureGroups);
+                Settings.Set(GrepSettings.Key.HighlightCaptureGroups, HighlightCaptureGroups);
             }
 
             switch (name)
@@ -80,147 +102,35 @@ namespace dnGREP.WPF
                     if (IsValidPattern && sHash != searchHash)
                     {
                         Search();
-                        Replace();
+                        if (TypeOfSearch != SearchType.Hex)
+                        {
+                            Replace();
+                        }
 
                         searchHash = sHash;
                         replaceHash = GetReplaceHash();
+                    }
+
+                    IsReplaceReadOnly = TypeOfSearch == SearchType.Hex;
+                    if (IsReplaceReadOnly)
+                    {
+                        ReplaceWith = string.Empty;
                     }
                     break;
 
                 case nameof(ReplaceWith):
                     int rHash = GetReplaceHash();
-                    if (IsValidPattern && rHash != replaceHash)
+                    if (IsValidPattern && rHash != replaceHash && TypeOfSearch != SearchType.Hex)
                     {
                         Replace();
 
                         replaceHash = rHash;
                     }
                     break;
-
-                case nameof(ValidationMessage):
-                    HasValidationMessage = !string.IsNullOrWhiteSpace(ValidationMessage);
-                    break;
             }
         }
 
-        private string applicationFontFamily;
-        public string ApplicationFontFamily
-        {
-            get { return applicationFontFamily; }
-            set
-            {
-                if (applicationFontFamily == value)
-                    return;
-
-                applicationFontFamily = value;
-                base.OnPropertyChanged(() => ApplicationFontFamily);
-            }
-        }
-
-        private double dialogfontSize;
-        public double DialogFontSize
-        {
-            get { return dialogfontSize; }
-            set
-            {
-                if (dialogfontSize == value)
-                    return;
-
-                dialogfontSize = value;
-                base.OnPropertyChanged(() => DialogFontSize);
-            }
-        }
-
-
-        private bool hasValidationMessage;
-
-        public bool HasValidationMessage
-        {
-            get { return hasValidationMessage; }
-            set
-            {
-                if (value == hasValidationMessage)
-                    return;
-
-                hasValidationMessage = value;
-                base.OnPropertyChanged(() => HasValidationMessage);
-            }
-        }
-
-
-        private static string sampleText;
-        public string SampleText
-        {
-            get { return sampleText; }
-            set
-            {
-                if (value == sampleText)
-                    return;
-
-                sampleText = value;
-                base.OnPropertyChanged(() => SampleText);
-            }
-        }
-
-        private InlineCollection searchOutput;
-        public InlineCollection SearchOutput
-        {
-            get { return searchOutput; }
-            set
-            {
-                if (value == searchOutput)
-                    return;
-
-                searchOutput = value;
-                base.OnPropertyChanged(() => SearchOutput);
-            }
-        }
-
-        private InlineCollection replaceOutput;
-        public InlineCollection ReplaceOutput
-        {
-            get { return replaceOutput; }
-            set
-            {
-                if (value == replaceOutput)
-                    return;
-
-                replaceOutput = value;
-                base.OnPropertyChanged(() => ReplaceOutput);
-            }
-        }
-
-        private string replaceOutputText;
-        public string ReplaceOutputText
-        {
-            get { return replaceOutputText; }
-            set
-            {
-                if (value == replaceOutputText)
-                    return;
-
-                replaceOutputText = value;
-
-                base.OnPropertyChanged(() => ReplaceOutputText);
-            }
-        }
-
-        private string replaceErrorText;
-        public string ReplaceErrorText
-        {
-            get { return replaceErrorText; }
-            set
-            {
-                if (value == replaceErrorText)
-                    return;
-
-                replaceErrorText = value;
-
-                base.OnPropertyChanged(() => ReplaceErrorText);
-            }
-        }
-
-        private GrepEngineInitParams InitParameters
+        private static GrepEngineInitParams InitParameters
         {
             get
             {
@@ -254,7 +164,7 @@ namespace dnGREP.WPF
             }
         }
 
-        private async void Search()
+        private void Search()
         {
             hasMatches = false;
             grepResults.Clear();
@@ -265,44 +175,67 @@ namespace dnGREP.WPF
                 return;
             }
 
-            GrepEnginePlainText engine = new GrepEnginePlainText();
-            engine.Initialize(InitParameters, new FileFilter());
+            IGrepEngine engine;
+            Encoding encoding;
+            if (TypeOfSearch == SearchType.Hex)
+            {
+                engine = new GrepEngineHex();
+                encoding = Encoding.UTF8;
+            }
+            else
+            {
+                engine = new GrepEnginePlainText();
+                encoding = Encoding.Unicode;
+            }
+            engine.Initialize(InitParameters, FileFilter.Default);
 
-            using (Stream inputStream = new MemoryStream(Encoding.Unicode.GetBytes(SampleText)))
+            using (Stream inputStream = new MemoryStream(encoding.GetBytes(SampleText)))
             {
                 try
                 {
                     grepResults = engine.Search(inputStream, "test.txt", SearchFor, TypeOfSearch,
-                        SearchOptions, Encoding.Unicode);
+                        SearchOptions, encoding, default);
 
-                    if (grepResults != null)
+                    if (TypeOfSearch == SearchType.Hex)
                     {
-                        using (StringReader reader = new StringReader(SampleText))
+                        using Stream stream = new MemoryStream(encoding.GetBytes(SampleText));
+                        using BinaryReader reader = new(stream);
+                        foreach (var result in grepResults)
                         {
-                            foreach (var result in grepResults)
+                            if (!result.HasSearchResults)
                             {
-                                if (!result.HasSearchResults)
-                                    result.SearchResults = Utils.GetLinesEx(reader, result.Matches, 0, 0);
+                                result.SearchResults = Utils.GetLinesHexFormat(reader, result.Matches, 0, 0);
+                            }
+                        }
+                    }
+                    else
+                    {
+                        using StringReader reader = new(SampleText);
+                        foreach (var result in grepResults)
+                        {
+                            if (!result.HasSearchResults)
+                            {
+                                result.SearchResults = Utils.GetLinesEx(reader, result.Matches, 0, 0);
                             }
                         }
                     }
                 }
                 catch (ArgumentException ex)
                 {
-                    MessageBox.Show(Resources.MessageBox_IncorrectPattern + ex.Message, 
-                        Resources.MessageBox_DnGrep, 
+                    MessageBox.Show(Resources.MessageBox_IncorrectPattern + ex.Message,
+                        Resources.MessageBox_DnGrep,
                         MessageBoxButton.OK, MessageBoxImage.Warning,
                         MessageBoxResult.OK, TranslationSource.Instance.FlowDirection);
                 }
             }
 
-            SearchResults.Clear();
-            SearchResults.AddRangeForTestView(grepResults);
-            Paragraph paragraph = new Paragraph();
-            if (SearchResults.Count == 1)
+            ResultsViewModel.SearchResults.Clear();
+            ResultsViewModel.AddRangeForTestView(grepResults);
+            Paragraph paragraph = new();
+            if (ResultsViewModel.SearchResults.Count == 1)
             {
-                await SearchResults[0].FormattedLines.LoadAsync();
-                foreach (FormattedGrepLine line in SearchResults[0].FormattedLines)
+                ResultsViewModel.SearchResults[0].FormattedLines.Load();
+                foreach (FormattedGrepLine line in ResultsViewModel.SearchResults[0].FormattedLines)
                 {
                     if (line.IsSectionBreak)
                     {
@@ -315,7 +248,24 @@ namespace dnGREP.WPF
                     }
 
                     // Copy children Inline to a temporary array.
-                    paragraph.Inlines.AddRange(line.FormattedText.ToList());
+                    if (TypeOfSearch == SearchType.Hex)
+                    {
+                        var run = new Run(line.FormattedLineNumber)
+                        {
+                            Background = new SolidColorBrush(Color.FromArgb(92, 180, 180, 180)),
+                            FontFamily = new FontFamily(ApplicationFontFamily),
+                        };
+                        paragraph.Inlines.Add(run);
+                        paragraph.Inlines.Add(new Run(" "));
+                        paragraph.Inlines.AddRange(line.FormattedText?.ToList());
+                        int length = GetLineLength(line.FormattedText);
+                        int spaces = (hexLineSize * 3) - length + 3;
+                        paragraph.Inlines.Add(new Run(new string(' ', spaces) + line.FormattedHexValues));
+                    }
+                    else
+                    {
+                        paragraph.Inlines.AddRange(line.FormattedText?.ToList());
+                    }
                     paragraph.Inlines.Add(new LineBreak());
                     hasMatches = true;
                 }
@@ -325,6 +275,22 @@ namespace dnGREP.WPF
                 paragraph.Inlines.Add(new Run(Resources.Test_NoMatchesFound));
             }
             SearchOutput = paragraph.Inlines;
+        }
+
+        private static int GetLineLength(InlineCollection? formattedText)
+        {
+            int length = 0;
+            if (formattedText != null)
+            {
+                foreach (var inline in formattedText)
+                {
+                    if (inline is Run run)
+                    {
+                        length += run.Text.Length;
+                    }
+                }
+            }
+            return length;
         }
 
         private void Replace()
@@ -337,10 +303,10 @@ namespace dnGREP.WPF
                 return;
             }
 
-            string replaceString = ReplaceWith ?? string.Empty;
+            string replacePattern = Utils.ReplaceSpecialCharacters(ReplaceWith) ?? string.Empty;
 
-            GrepEnginePlainText engine = new GrepEnginePlainText();
-            engine.Initialize(InitParameters, new FileFilter());
+            GrepEnginePlainText engine = new();
+            engine.Initialize(InitParameters, FileFilter.Default);
 
             string replacedString = string.Empty;
             try
@@ -359,22 +325,18 @@ namespace dnGREP.WPF
                     return;
                 }
 
-                using (Stream inputStream = new MemoryStream(Encoding.Unicode.GetBytes(SampleText)))
-                using (Stream writeStream = new MemoryStream())
-                {
-                    engine.Replace(inputStream, writeStream, SearchFor, replaceString, TypeOfSearch,
-                        SearchOptions, Encoding.Unicode, grepResults[0].Matches);
-                    writeStream.Position = 0;
-                    using (StreamReader reader = new StreamReader(writeStream))
-                    {
-                        replacedString = reader.ReadToEnd();
-                    }
-                }
+                using Stream inputStream = new MemoryStream(Encoding.Unicode.GetBytes(SampleText));
+                using Stream writeStream = new MemoryStream();
+                engine.Replace(inputStream, writeStream, SearchFor, replacePattern, TypeOfSearch,
+                    SearchOptions, Encoding.Unicode, grepResults[0].Matches, default);
+                writeStream.Position = 0;
+                using StreamReader reader = new(writeStream);
+                replacedString = reader.ReadToEnd();
             }
             catch (ArgumentException ex)
             {
-                MessageBox.Show(Resources.MessageBox_IncorrectPattern + ex.Message, 
-                    Resources.MessageBox_DnGrep, 
+                MessageBox.Show(Resources.MessageBox_IncorrectPattern + ex.Message,
+                    Resources.MessageBox_DnGrep,
                     MessageBoxButton.OK, MessageBoxImage.Warning,
                     MessageBoxResult.OK, TranslationSource.Instance.FlowDirection);
             }
@@ -384,12 +346,12 @@ namespace dnGREP.WPF
             }
             catch (Exception ex)
             {
-                MessageBox.Show(Resources.MessageBox_Error + ex.Message, Resources.MessageBox_DnGrep, 
+                MessageBox.Show(Resources.MessageBox_Error + ex.Message, Resources.MessageBox_DnGrep,
                     MessageBoxButton.OK, MessageBoxImage.Error,
                     MessageBoxResult.OK, TranslationSource.Instance.FlowDirection);
             }
 
-            Paragraph paragraph = new Paragraph();
+            Paragraph paragraph = new();
             paragraph.Inlines.Add(new Run(replacedString));
             ReplaceOutput = paragraph.Inlines;
             ReplaceOutputText = replacedString;

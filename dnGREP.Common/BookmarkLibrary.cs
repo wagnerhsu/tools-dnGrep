@@ -1,22 +1,22 @@
 using System;
 using System.Collections.Generic;
+using System.Diagnostics.CodeAnalysis;
 using System.IO;
 using System.Linq;
 using System.Xml.Serialization;
 using NLog;
-using Directory = Alphaleonis.Win32.Filesystem.Directory;
-using DirectoryInfo = Alphaleonis.Win32.Filesystem.DirectoryInfo;
-using File = Alphaleonis.Win32.Filesystem.File;
-using FileInfo = Alphaleonis.Win32.Filesystem.FileInfo;
-using Path = Alphaleonis.Win32.Filesystem.Path;
 
 namespace dnGREP.Common
 {
     public class BookmarkLibrary
     {
-        private static Logger logger = LogManager.GetCurrentClassLogger();
+        private static readonly Logger logger = LogManager.GetCurrentClassLogger();
 
-        private static BookmarkEntity bookmarks;
+        private static BookmarkEntity? bookmarks;
+
+        public static readonly int LatestVersion = 6;
+
+        public static bool IsDeserializing { get; private set; } = false;
 
         public static BookmarkEntity Instance
         {
@@ -35,22 +35,30 @@ namespace dnGREP.Common
             get { return Path.Combine(Utils.GetDataFolderPath(), "bookmarks.xml"); }
         }
 
+        [MemberNotNull(nameof(bookmarks))]
         public static void Load()
         {
             try
             {
-                BookmarkEntity bookmarkLib;
-                XmlSerializer serializer = new XmlSerializer(typeof(BookmarkEntity));
+                IsDeserializing = true;
+                BookmarkEntity? bookmarkLib;
                 if (!File.Exists(BookmarksFile))
                 {
                     bookmarks = new BookmarkEntity();
                 }
                 else
                 {
-                    using (TextReader reader = new StreamReader(BookmarksFile))
+                    using TextReader reader = new StreamReader(BookmarksFile);
+                    XmlSerializer serializer = new(typeof(BookmarkEntity));
+                    bookmarkLib = (BookmarkEntity?)serializer.Deserialize(reader);
+                    if (bookmarkLib != null)
                     {
-                        bookmarkLib = (BookmarkEntity)serializer.Deserialize(reader);
+                        bookmarkLib.Initialize();
                         bookmarks = bookmarkLib;
+                    }
+                    else
+                    {
+                        bookmarks = new BookmarkEntity();
                     }
                 }
             }
@@ -58,17 +66,19 @@ namespace dnGREP.Common
             {
                 bookmarks = new BookmarkEntity();
             }
+            finally
+            {
+                IsDeserializing = false;
+            }
         }
 
         public static void Save()
         {
             try
             {
-                XmlSerializer serializer = new XmlSerializer(typeof(BookmarkEntity));
-                using (TextWriter writer = new StreamWriter(BookmarksFile))
-                {
-                    serializer.Serialize(writer, bookmarks);
-                }
+                XmlSerializer serializer = new(typeof(BookmarkEntity));
+                using TextWriter writer = new StreamWriter(BookmarksFile);
+                serializer.Serialize(writer, bookmarks);
             }
             catch (Exception ex)
             {
@@ -80,11 +90,67 @@ namespace dnGREP.Common
     [Serializable]
     public class BookmarkEntity
     {
-        public List<Bookmark> Bookmarks { get; set; } = new List<Bookmark>();
+        public List<Bookmark> Bookmarks { get; private set; } = new();
 
-        public Bookmark Find(Bookmark bookmark)
+        internal void Initialize()
         {
-            return Bookmarks.FirstOrDefault(bk => bk == bookmark);
+            if (BookmarkLibrary.IsDeserializing)
+            {
+                foreach (var bk in Bookmarks)
+                {
+                    if (string.IsNullOrEmpty(bk.Id))
+                    {
+                        bk.Id = Guid.NewGuid().ToString();
+                    }
+                }
+                UpdateOrdinals();
+            }
+        }
+
+        public Bookmark? Get(string id)
+        {
+            return Bookmarks.FirstOrDefault(b => b.Id == id);
+        }
+
+        public Bookmark? Find(Bookmark bookmark)
+        {
+            if (!Bookmarks.Any()) return null;
+
+            Bookmark? item = null;
+
+            item = Bookmarks.FirstOrDefault(bk => bk.Equals(bookmark));
+            if (item != null) return item;
+
+            item = Bookmarks.FirstOrDefault(bk => bk.ApplyFileSourceFilters && bk.FileSourceEquals(bookmark) &&
+                bk.ApplyFilePropertyFilters && bk.FilePropertiesEquals(bookmark) &&
+                !bk.ApplyContentSearchFilters);
+            if (item != null) return item;
+
+            item = Bookmarks.FirstOrDefault(bk => bk.ApplyFileSourceFilters && bk.FileSourceEquals(bookmark) &&
+                bk.ApplyContentSearchFilters && bk.ContentSearchEquals(bookmark) &&
+                !bk.ApplyFilePropertyFilters);
+            if (item != null) return item;
+
+            item = Bookmarks.FirstOrDefault(bk => bk.ApplyFilePropertyFilters && bk.FilePropertiesEquals(bookmark) &&
+                bk.ApplyContentSearchFilters && bk.ContentSearchEquals(bookmark) &&
+                !bk.ApplyFileSourceFilters);
+            if (item != null) return item;
+
+            item = Bookmarks.FirstOrDefault(bk => bk.ApplyFileSourceFilters && bk.FileSourceEquals(bookmark) &&
+                !bk.ApplyFilePropertyFilters &&
+                !bk.ApplyContentSearchFilters);
+            if (item != null) return item;
+
+            item = Bookmarks.FirstOrDefault(bk => bk.ApplyFilePropertyFilters && bk.FilePropertiesEquals(bookmark) &&
+                !bk.ApplyFileSourceFilters &&
+                !bk.ApplyContentSearchFilters);
+            if (item != null) return item;
+
+            item = Bookmarks.FirstOrDefault(bk => bk.ApplyContentSearchFilters && bk.ContentSearchEquals(bookmark) &&
+                !bk.ApplyFileSourceFilters &&
+                !bk.ApplyFilePropertyFilters);
+
+            return item;
         }
 
         public void AddFolderReference(Bookmark bookmark, string folder)
@@ -97,22 +163,60 @@ namespace dnGREP.Common
             bookmark.FolderReferences.Add(folder);
         }
 
+        public void UpdateOrdinals()
+        {
+            int idx = 0;
+            foreach (Bookmark bookmark in Bookmarks)
+            {
+                bookmark.Ordinal = idx++;
+            }
+        }
+
+        public void Sort()
+        {
+            Bookmarks.Sort((x, y) => x.Ordinal.CompareTo(y.Ordinal));
+        }
+
         public BookmarkEntity() { }
     }
 
     [Serializable]
     public class Bookmark
     {
-        public Bookmark() { }
-        public Bookmark(string searchFor, string replaceWith, string filePattern)
+        private string _id = string.Empty;
+
+        public Bookmark()
         {
-            Version = 2;
-            SearchPattern = searchFor;
-            ReplacePattern = replaceWith;
-            FileNames = filePattern;
+            if (!BookmarkLibrary.IsDeserializing)
+            {
+                _id = Guid.NewGuid().ToString();
+            }
         }
 
-        public int Version { get; set; } = 1;
+        public Bookmark(string id)
+        {
+            _id = id;
+        }
+
+        [XmlIgnore]
+        public int Ordinal { get; set; }
+
+        public string Id
+        {
+            get { return _id; }
+            // Setter is public only for XmlSerialization
+            set
+            {
+                if (!BookmarkLibrary.IsDeserializing)
+                    throw new InvalidOperationException("Setter is public only for XmlSerialization");
+
+                _id = value;
+            }
+        }
+
+        public int Version { get; set; } = BookmarkLibrary.LatestVersion;
+
+        public string BookmarkName { get; set; } = string.Empty;
         public string Description { get; set; } = string.Empty;
 
         public SearchType TypeOfSearch { get; set; } = SearchType.PlainText;
@@ -132,10 +236,15 @@ namespace dnGREP.Common
         public bool IncludeBinaryFiles { get; set; }
         public int MaxSubfolderDepth { get; set; } = -1;
         public bool UseGitignore { get; set; }
+        public string IgnoreFilterName { get; set; } = string.Empty;
+        public bool SkipRemoteCloudStorageFiles { get; set; } = true;
         public bool IncludeArchive { get; set; }
         public bool FollowSymlinks { get; set; }
         public int CodePage { get; set; } = -1;
-        public List<string> FolderReferences { get; set; } = new List<string>();
+        public List<string> FolderReferences { get; set; } = new();
+        public bool ApplyFileSourceFilters { get; set; } = true;
+        public bool ApplyFilePropertyFilters { get; set; } = true;
+        public bool ApplyContentSearchFilters { get; set; } = true;
 
 
         // do not write v2 properties if the user hasn't updated the bookmark
@@ -156,25 +265,78 @@ namespace dnGREP.Common
         public bool ShouldSerializeFollowSymlinks() { return Version > 1; }
         public bool ShouldSerializeCodePage() { return Version > 1; }
         public bool ShouldSerializeFolderReferences() { return Version > 1; }
+        public bool ShouldSerializeApplyFileSourceFilters() { return Version > 2; }
+        public bool ShouldSerializeApplyFilePropertyFilters() { return Version > 2; }
+        public bool ShouldSerializeApplyContentSearchFilters() { return Version > 2; }
+        public bool ShouldSerializeApplySearchFilters() { return Version > 2; }
+        public bool ShouldSerializeSkipRemoteCloudStorageFiles() { return Version > 3; }
+        public bool ShouldSerializeIgnoreFilterName() { return Version > 5; }
 
-        public override bool Equals(object obj)
+        public override bool Equals(object? obj)
         {
             if (obj is Bookmark otherBookmark)
             {
-                return this.Equals(otherBookmark);
+                return Equals(otherBookmark);
             }
             return false;
         }
 
-        public bool Equals(Bookmark otherBookmark)
+        public bool FileSourceEquals(Bookmark otherBookmark)
+        {
+            return TypeOfFileSearch == otherBookmark.TypeOfFileSearch &&
+                FileNames == otherBookmark.FileNames &&
+                IgnoreFilePattern == otherBookmark.IgnoreFilePattern &&
+                IncludeArchive == otherBookmark.IncludeArchive &&
+                UseGitignore == otherBookmark.UseGitignore &&
+                IgnoreFilterName == otherBookmark.IgnoreFilterName &&
+                SkipRemoteCloudStorageFiles == otherBookmark.SkipRemoteCloudStorageFiles &&
+                CodePage == otherBookmark.CodePage;
+        }
+
+        public bool FilePropertiesEquals(Bookmark otherBookmark)
+        {
+            return IncludeSubfolders == otherBookmark.IncludeSubfolders &&
+                MaxSubfolderDepth == otherBookmark.MaxSubfolderDepth &&
+                IncludeHiddenFiles == otherBookmark.IncludeHiddenFiles &&
+                IncludeBinaryFiles == otherBookmark.IncludeBinaryFiles &&
+                FollowSymlinks == otherBookmark.FollowSymlinks;
+        }
+
+        public bool ContentSearchEquals(Bookmark otherBookmark)
+        {
+            return TypeOfSearch == otherBookmark.TypeOfSearch &&
+                    SearchPattern == otherBookmark.SearchPattern &&
+                    ReplacePattern == otherBookmark.ReplacePattern &&
+                    CaseSensitive == otherBookmark.CaseSensitive &&
+                    WholeWord == otherBookmark.WholeWord &&
+                    Multiline == otherBookmark.Multiline &&
+                    Singleline == otherBookmark.Singleline &&
+                    BooleanOperators == otherBookmark.BooleanOperators;
+        }
+
+        public bool Equals(Bookmark? otherBookmark)
         {
             if (otherBookmark is null)
                 return false;
 
-            return
-                TypeOfFileSearch == otherBookmark.TypeOfFileSearch &&
+            // equality is used to determine if two different bookmarks are the same
+            // so Id, BookmarkName, Description and Ordinal are not part of equality
+
+            return TypeOfFileSearch == otherBookmark.TypeOfFileSearch &&
                 FileNames == otherBookmark.FileNames &&
                 IgnoreFilePattern == otherBookmark.IgnoreFilePattern &&
+                UseGitignore == otherBookmark.UseGitignore &&
+                IgnoreFilterName == otherBookmark.IgnoreFilterName &&
+                SkipRemoteCloudStorageFiles == otherBookmark.SkipRemoteCloudStorageFiles &&
+                IncludeArchive == otherBookmark.IncludeArchive &&
+                CodePage == otherBookmark.CodePage &&
+
+                IncludeSubfolders == otherBookmark.IncludeSubfolders &&
+                MaxSubfolderDepth == otherBookmark.MaxSubfolderDepth &&
+                IncludeHiddenFiles == otherBookmark.IncludeHiddenFiles &&
+                IncludeBinaryFiles == otherBookmark.IncludeBinaryFiles &&
+                FollowSymlinks == otherBookmark.FollowSymlinks &&
+
                 TypeOfSearch == otherBookmark.TypeOfSearch &&
                 SearchPattern == otherBookmark.SearchPattern &&
                 ReplacePattern == otherBookmark.ReplacePattern &&
@@ -183,14 +345,10 @@ namespace dnGREP.Common
                 Multiline == otherBookmark.Multiline &&
                 Singleline == otherBookmark.Singleline &&
                 BooleanOperators == otherBookmark.BooleanOperators &&
-                IncludeSubfolders == otherBookmark.IncludeSubfolders &&
-                IncludeHiddenFiles == otherBookmark.IncludeHiddenFiles &&
-                IncludeBinaryFiles == otherBookmark.IncludeBinaryFiles &&
-                MaxSubfolderDepth == otherBookmark.MaxSubfolderDepth &&
-                UseGitignore == otherBookmark.UseGitignore &&
-                IncludeArchive == otherBookmark.IncludeArchive &&
-                FollowSymlinks == otherBookmark.FollowSymlinks &&
-                CodePage == otherBookmark.CodePage;
+
+                ApplyFileSourceFilters == otherBookmark.ApplyFileSourceFilters &&
+                ApplyFilePropertyFilters == otherBookmark.ApplyFilePropertyFilters &&
+                ApplyContentSearchFilters == otherBookmark.ApplyContentSearchFilters;
         }
 
         public override int GetHashCode()
@@ -199,36 +357,45 @@ namespace dnGREP.Common
             {
                 int hashCode = 13;
                 hashCode = (hashCode * 17) ^ TypeOfFileSearch.GetHashCode();
-                hashCode = (hashCode * 17) ^ FileNames?.GetHashCode() ?? 5;
-                hashCode = (hashCode * 17) ^ IgnoreFilePattern?.GetHashCode() ?? 5;
+                hashCode = (hashCode * 17) ^ FileNames?.GetHashCode(StringComparison.Ordinal) ?? 5;
+                hashCode = (hashCode * 17) ^ IgnoreFilePattern?.GetHashCode(StringComparison.Ordinal) ?? 5;
+                hashCode = (hashCode * 17) ^ UseGitignore.GetHashCode();
+                hashCode = (hashCode * 17) ^ IgnoreFilterName.GetHashCode(StringComparison.Ordinal);
+                hashCode = (hashCode * 17) ^ SkipRemoteCloudStorageFiles.GetHashCode();
+                hashCode = (hashCode * 17) ^ IncludeArchive.GetHashCode();
+                hashCode = (hashCode * 17) ^ CodePage.GetHashCode();
+
+                hashCode = (hashCode * 17) ^ IncludeSubfolders.GetHashCode();
+                hashCode = (hashCode * 17) ^ MaxSubfolderDepth.GetHashCode();
+                hashCode = (hashCode * 17) ^ IncludeHiddenFiles.GetHashCode();
+                hashCode = (hashCode * 17) ^ IncludeBinaryFiles.GetHashCode();
+                hashCode = (hashCode * 17) ^ FollowSymlinks.GetHashCode();
+
                 hashCode = (hashCode * 17) ^ TypeOfSearch.GetHashCode();
-                hashCode = (hashCode * 17) ^ SearchPattern?.GetHashCode() ?? 5;
-                hashCode = (hashCode * 17) ^ ReplacePattern?.GetHashCode() ?? 5;
+                hashCode = (hashCode * 17) ^ SearchPattern?.GetHashCode(StringComparison.Ordinal) ?? 5;
+                hashCode = (hashCode * 17) ^ ReplacePattern?.GetHashCode(StringComparison.Ordinal) ?? 5;
                 hashCode = (hashCode * 17) ^ CaseSensitive.GetHashCode();
                 hashCode = (hashCode * 17) ^ WholeWord.GetHashCode();
                 hashCode = (hashCode * 17) ^ Multiline.GetHashCode();
                 hashCode = (hashCode * 17) ^ Singleline.GetHashCode();
                 hashCode = (hashCode * 17) ^ BooleanOperators.GetHashCode();
-                hashCode = (hashCode * 17) ^ IncludeSubfolders.GetHashCode();
-                hashCode = (hashCode * 17) ^ IncludeHiddenFiles.GetHashCode();
-                hashCode = (hashCode * 17) ^ IncludeBinaryFiles.GetHashCode();
-                hashCode = (hashCode * 17) ^ MaxSubfolderDepth.GetHashCode();
-                hashCode = (hashCode * 17) ^ UseGitignore.GetHashCode();
-                hashCode = (hashCode * 17) ^ IncludeArchive.GetHashCode();
-                hashCode = (hashCode * 17) ^ FollowSymlinks.GetHashCode();
-                hashCode = (hashCode * 17) ^ CodePage.GetHashCode();
+
+                hashCode = (hashCode * 17) ^ ApplyFileSourceFilters.GetHashCode();
+                hashCode = (hashCode * 17) ^ ApplyFilePropertyFilters.GetHashCode();
+                hashCode = (hashCode * 17) ^ ApplyContentSearchFilters.GetHashCode();
+
                 return hashCode;
             }
         }
 
-        public static bool Equals(Bookmark b1, Bookmark b2) => b1 is null ? b2 is null : b1.Equals(b2);
+        public static bool Equals(Bookmark? b1, Bookmark? b2) => b1 is null ? b2 is null : b1.Equals(b2);
 
-        public static bool operator ==(Bookmark b1, Bookmark b2) => Equals(b1, b2);
-        public static bool operator !=(Bookmark b1, Bookmark b2) => !Equals(b1, b2);
+        public static bool operator ==(Bookmark? b1, Bookmark? b2) => Equals(b1, b2);
+        public static bool operator !=(Bookmark? b1, Bookmark? b2) => !Equals(b1, b2);
 
         public override string ToString()
         {
-            return $"{SearchPattern} to {ReplacePattern} on {FileNames} :: {Description}";
+            return $"{Ordinal} {BookmarkName} {SearchPattern} to {ReplacePattern} on {FileNames} :: {Description}";
         }
     }
 }

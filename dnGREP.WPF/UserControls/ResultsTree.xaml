@@ -9,11 +9,13 @@
              d:DesignHeight="300"
              d:DesignWidth="300"
              mc:Ignorable="d">
-    
+
     <UserControl.Resources>
         <BooleanToVisibilityConverter x:Key="BooleanToVisibilityConverter" />
+        <my:BoolToVisibilityConverter x:Key="InverseBoolToVisibilityConverter" TrueValue="Hidden" FalseValue="Visible" />
         <my:BoolToScollBarVisibilityConverter x:Key="BoolToScollBarVisibilityConverter"/>
         <my:BoolToTextWrappingConverter x:Key="BoolToTextWrappingConverter"/>
+        <my:BooleanAndConverter x:Key="BooleanAndConverter"/>
         <my:GridLengthConverter x:Key="GridLengthConverter" />
         <Style TargetType="{x:Type ContextMenu}" BasedOn="{StaticResource ThemedContextMenu}">
             <Setter Property="FontFamily" Value="{Binding Path=DataContext.ApplicationFontFamily, RelativeSource={RelativeSource Mode=FindAncestor, AncestorType={x:Type Window}}}"/>
@@ -26,12 +28,14 @@
                                   Foreground="{DynamicResource TreeView.Foreground}"
                                   Background="{DynamicResource TreeView.Background}"
                                   BorderBrush="{DynamicResource TreeView.Border}"
-                                  ItemsSource="{Binding}"
+                                  ItemsSource="{Binding SearchResults}"
                                   SelectedItems="{Binding SelectedNodes}"
                                   MultiSelectRootLevelOnly="False" 
                                   VirtualizingStackPanel.IsVirtualizing="True"
-                                  MouseDoubleClick="treeView_MouseDoubleClick" 
-                                  PreviewKeyDown="treeKeyDown"
+                                  MouseDoubleClick="TreeView_MouseDoubleClick" 
+                                  MouseUp="TreeView_MouseUp"
+                                  PreviewKeyDown="TreeKeyDown"
+                                  PreviewMouseDoubleClick="TreeView_PreviewMouseDoubleClick"
                                   Grid.IsSharedSizeScope="True"
                                   ScrollViewer.HorizontalScrollBarVisibility="{Binding Path=WrapText, Converter={StaticResource BoolToScollBarVisibilityConverter}}">
         <TreeView.ItemsPanel>
@@ -118,9 +122,12 @@
                             </Style>
                         </Grid.Resources>
                         <Grid.ColumnDefinitions>
-                            <ColumnDefinition Width="Auto" SharedSizeGroup="NUM"/>
-                            <ColumnDefinition Width="*"/>
-                            <ColumnDefinition Width="{Binding Path=HexPanelWidth, Converter={StaticResource GridLengthConverter}}"/>
+                            <ColumnDefinition Width="Auto" 
+                                              SharedSizeGroup="NUM"/>
+                            <ColumnDefinition Width="{Binding Path=ResultColumn1Width, Converter={StaticResource GridLengthConverter}}" 
+                                              SharedSizeGroup="{Binding ResultColumn1SharedSizeGroupName}"/>
+                            <ColumnDefinition Width="{Binding Path=ResultColumn2Width, Converter={StaticResource GridLengthConverter}}" 
+                                              SharedSizeGroup="COL2"/>
                         </Grid.ColumnDefinitions>
                         <TextBlock Grid.Column="0"
                                    Width="{Binding LineNumberColumnWidth}"
@@ -128,11 +135,14 @@
                                    Text="{Binding FormattedLineNumber}"
                                    TextAlignment="{Binding LineNumberAlignment}" />
                         <my:InlineTextBlock Grid.Column="1" 
-                                            Margin="6,0,0,0" InlineCollection="{Binding FormattedText}" FontFamily="Consolas" 
+                                            Margin="6,0,0,0" InlineCollection="{Binding FormattedText}" 
+                                            FontFamily="{Binding Path=DataContext.ResultsFontFamily, RelativeSource={RelativeSource Mode=FindAncestor, AncestorType={x:Type Window}}}" 
+                                            FontSize="{Binding Path=DataContext.ResultsFontSize, RelativeSource={RelativeSource Mode=FindAncestor, AncestorType={x:Type Window}}}" 
                                             TextWrapping="{Binding WrapText, Converter={StaticResource BoolToTextWrappingConverter}}"/>
                         <TextBlock Grid.Column="2"
-                                   Margin="12,0,0,0" Text="{Binding FormattedHexValues}"
-                                   FontFamily="Consolas"
+                                   Margin="24,0,0,0" Text="{Binding FormattedHexValues}"
+                                   FontFamily="{Binding Path=DataContext.ResultsFontFamily, RelativeSource={RelativeSource Mode=FindAncestor, AncestorType={x:Type Window}}}"
+                                   FontSize="{Binding Path=DataContext.ResultsFontSize, RelativeSource={RelativeSource Mode=FindAncestor, AncestorType={x:Type Window}}}"
                                    Style="{StaticResource ThemedTextBlock}"
                                    Visibility="{Binding IsHexData, Converter={StaticResource BooleanToVisibilityConverter}}"/>
                     </Grid>
@@ -141,36 +151,61 @@
         </TreeView.Resources>
         <TreeView.ContextMenu>
             <ContextMenu>
-                <MenuItem Header="{l:Loc Key='Main_Results_Open'}" Click="btnOpenFile_Click" IsEnabled="{Binding HasSelection}" />
-                <MenuItem Header="{l:Loc Key='Main_Results_OpenWithCustomEditor'}" Click="btnOpenFileCustomEditor_Click"
-                          IsEnabled="{Binding HasSelection}"
-                          Visibility="{Binding CustomEditorConfigured, Converter={StaticResource BooleanToVisibilityConverter}}" />
-                <MenuItem Header="{l:Loc Key='Main_Results_OpenContainingFolder'}" Click="btnOpenContainingFolder_Click" IsEnabled="{Binding HasSelection}" />
-                <MenuItem Header="{l:Loc Key='Main_Results_ShowFileProperties'}" Click="btnShowFileProperties_Click" IsEnabled="{Binding HasSelection}" />
+                <MenuItem Header="{l:Loc Key='Main_Results_Open'}" Click="BtnOpenFile_Click" IsEnabled="{Binding HasSelection}" />
+                <MenuItem Header="{l:Loc Key='Main_Results_OpenWithCustomEditor'}" Click="BtnOpenFileCustomEditor_Click" 
+                          ToolTipService.ShowOnDisabled="True">
+                    <MenuItem.IsEnabled>
+                        <MultiBinding Converter="{StaticResource BooleanAndConverter}">
+                            <Binding Path="HasSelection"/>
+                            <Binding Path="CustomEditorConfigured"/>
+                        </MultiBinding>
+                    </MenuItem.IsEnabled>
+                    <MenuItem.ToolTip>
+                        <ToolTip Content="{l:Loc Key='Main_Results_Tooltip_NotConfigured'}"
+                                 Visibility="{Binding Path=CustomEditorConfigured, Converter={StaticResource InverseBoolToVisibilityConverter}}"/>
+                    </MenuItem.ToolTip>
+                </MenuItem>
+                <MenuItem Header="{l:Loc Key='Main_Results_OpenContainingFolder'}" Click="BtnOpenContainingFolder_Click" IsEnabled="{Binding HasSelection}" />
+                <MenuItem Header="{l:Loc Key='Main_Results_RenameFile'}" Click="BtnRenameFile_Click" IsEnabled="{Binding HasSingleSelection}" />
+                <MenuItem Header="{l:Loc Key='Main_Results_CopyFiles'}" Click="BtnCopyFiles_Click" IsEnabled="{Binding HasSelection}" />
+                <MenuItem Header="{l:Loc Key='Main_Results_MoveFiles'}" Click="BtnMoveFiles_Click" IsEnabled="{Binding HasSelection}" />
+                <MenuItem Header="{l:Loc Key='Main_Results_DeleteFiles'}" Click="BtnDeleteFiles_Click" IsEnabled="{Binding HasSelection}" />
+                <MenuItem Header="{l:Loc Key='Main_Results_MoveFilesToRecycleBin'}" Click="BtnRecycleFiles_Click" IsEnabled="{Binding HasSelection}" />
+                <MenuItem Header="{l:Loc Key='Main_Results_MakeWritable'}" Click="BtnMakeWritable_Click" IsEnabled="{Binding HasReadOnlySelection}" />
+                <Separator />
+                <MenuItem Header="{l:Loc Key='Main_Results_ShowExplorerMenu'}" Click="BtnOpenExplorerMenu_Click" IsEnabled="{Binding HasSelection}" />
+                <MenuItem Header="{l:Loc Key='Main_Results_ShowFileProperties'}" Click="BtnShowFileProperties_Click" IsEnabled="{Binding HasSelection}" />
+                <Separator />
                 <MenuItem Header="{l:Loc Key='Main_Results_CompareFiles'}" Command="{Binding CompareFilesCommand}"
-                          Visibility="{Binding CompareApplicationConfigured, Converter={StaticResource BooleanToVisibilityConverter}}" />
+                          ToolTipService.ShowOnDisabled="True">
+                    <MenuItem.ToolTip>
+                        <ToolTip Content="{l:Loc Key='Main_Results_Tooltip_NotConfigured'}"
+                                 Visibility="{Binding Path=CompareApplicationConfigured, Converter={StaticResource InverseBoolToVisibilityConverter}}"/>
+                    </MenuItem.ToolTip>
+                </MenuItem>
+                <MenuItem Header="{l:Loc Key='Main_Results_CopyFileNames'}" Click="BtnCopyFileNames_Click" IsEnabled="{Binding HasSelection}" />
+                <MenuItem Header="{l:Loc Key='Main_Results_CopyFullFilePaths'}" Click="BtnCopyFullFilePath_Click" IsEnabled="{Binding HasSelection}" />
+                <MenuItem Header="{l:Loc Key='Main_Results_CopyLinesOfText'}" Click="BtnCopyGrepLine_Click" IsEnabled="{Binding HasGrepLineSelection}" />
                 <Separator />
-                <MenuItem Header="{l:Loc Key='Main_Results_RenameFile'}" Click="btnRenameFile_Click" IsEnabled="{Binding HasSingleSelection}" />
-                <MenuItem Header="{l:Loc Key='Main_Results_CopyFileNames'}" Click="btnCopyFileNames_Click" IsEnabled="{Binding HasSelection}" />
-                <MenuItem Header="{l:Loc Key='Main_Results_CopyFullFilePaths'}" Click="btnCopyFullFilePath_Click" IsEnabled="{Binding HasSelection}" />
-                <MenuItem Header="{l:Loc Key='Main_Results_CopyLinesOfText'}" Click="btnCopyGrepLine_Click" IsEnabled="{Binding HasGrepLineSelection}" />
+                <MenuItem Header="{l:Loc Key='Main_Results_ExcludeFromResults'}" Click="BtnExclude_Click" IsEnabled="{Binding HasSelection}" />
+                <MenuItem Header="{l:Loc Key='Main_Results_NextMatch'}" Click="BtnNextMatch_Click" InputGestureText="F3" />
+                <MenuItem Header="{l:Loc Key='Main_Results_NextFile'}" Click="BtnNextFile_Click" InputGestureText="Shift+F3" />
+                <MenuItem Header="{l:Loc Key='Main_Results_PreviousMatch'}" Click="BtnPreviousMatch_Click" InputGestureText="F4"/>
+                <MenuItem Header="{l:Loc Key='Main_Results_PreviousFile'}" Click="BtnPreviousFile_Click" InputGestureText="Shift+F4"/>
+                <MenuItem Header="{l:Loc Key='Main_Results_ExpandAll'}" Click="BtnExpandAll_Click" InputGestureText="F6" />
+                <MenuItem Header="{l:Loc Key='Main_Results_CollapseAll'}" Click="BtnCollapseAll_Click" InputGestureText="Shift+F6"/>
                 <Separator />
-                <MenuItem Header="{l:Loc Key='Main_Results_ExcludeFromResults'}" Click="btnExclude_Click" IsEnabled="{Binding HasSelection}" />
-                <MenuItem Header="{l:Loc Key='Main_Results_NextMatch'}" Click="btnNextMatch_Click" InputGestureText="F3" />
-                <MenuItem Header="{l:Loc Key='Main_Results_PreviousMatch'}" Click="btnPreviousMatch_Click" InputGestureText="F4"/>
-                <MenuItem Header="{l:Loc Key='Main_Results_ExpandAll'}" Click="btnExpandAll_Click" InputGestureText="F6" />
-                <MenuItem Header="{l:Loc Key='Main_Results_CollapseAll'}" Click="btnCollapseAll_Click" InputGestureText="Shift+F6"/>
-                <MenuItem Header="{l:Loc Key='Main_Results_ResetZoom'}" Click="btnResetZoom_Click" />
+                <MenuItem Header="{l:Loc Key='Main_Results_ResetZoom'}" Click="BtnResetZoom_Click" />
             </ContextMenu>
         </TreeView.ContextMenu>
         <TreeView.ItemContainerStyle>
             <Style TargetType="{x:Type TreeViewItem}">
                 <Setter Property="Foreground" Value="{DynamicResource TreeView.Foreground}" />
                 <Setter Property="Controls:MultiSelectTreeView.IsItemSelected" Value="{Binding IsSelected, Mode=TwoWay}" />
-                <EventSetter Event="UIElement.MouseRightButtonDown" Handler="treeView_MouseDown" />
-                <EventSetter Event="UIElement.PreviewMouseLeftButtonDown" Handler="treeView_PreviewMouseLeftButtonDown" />
-                <EventSetter Event="UIElement.PreviewMouseMove" Handler="treeView_PreviewMouseMove" />
-                <EventSetter Event="RequestBringIntoView" Handler="treeView_RequestBringIntoView" />
+                <EventSetter Event="UIElement.MouseRightButtonDown" Handler="TreeView_MouseDown" />
+                <EventSetter Event="UIElement.PreviewMouseLeftButtonDown" Handler="TreeView_PreviewMouseLeftButtonDown" />
+                <EventSetter Event="UIElement.PreviewMouseMove" Handler="TreeView_PreviewMouseMove" />
+                <EventSetter Event="RequestBringIntoView" Handler="TreeView_RequestBringIntoView" />
                 <Setter Property="IsExpanded" Value="{Binding IsExpanded, Mode=TwoWay}" />
                 <Setter Property="BorderThickness" Value="1.5" />
                 <Setter Property="Padding" Value="1" />

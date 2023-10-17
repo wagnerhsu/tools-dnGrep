@@ -24,7 +24,7 @@ using System.Windows.Controls.Primitives;
 using System.Windows.Documents;
 using System.Windows.Input;
 using System.Windows.Media;
-
+using System.Windows.Threading;
 using ICSharpCode.AvalonEdit.Document;
 using ICSharpCode.AvalonEdit.Editing;
 using ICSharpCode.AvalonEdit.Rendering;
@@ -43,6 +43,8 @@ namespace ICSharpCode.AvalonEdit.Search
 		TextBox searchTextBox;
 		Popup dropdownPopup;
 		SearchPanelAdorner adorner;
+		DispatcherTimer searchTimer;
+		bool lastChangeSelection;
 
 		#region DependencyProperties
 		/// <summary>
@@ -120,6 +122,57 @@ namespace ICSharpCode.AvalonEdit.Search
 			set { SetValue(MarkerBrushProperty, value); }
 		}
 
+		private static void MarkerBrushChangedCallback(DependencyObject d, DependencyPropertyChangedEventArgs e)
+		{
+			if (d is SearchPanel panel) {
+				panel.renderer.MarkerBrush = (Brush)e.NewValue;
+			}
+		}
+
+		/// <summary>
+		/// Dependency property for <see cref="MarkerPen"/>.
+		/// </summary>
+		public static readonly DependencyProperty MarkerPenProperty =
+			DependencyProperty.Register("MarkerPen", typeof(Pen), typeof(SearchPanel),
+										new PropertyMetadata(null, MarkerPenChangedCallback));
+
+		/// <summary>
+		/// Gets/sets the Pen used for marking search results in the TextView.
+		/// </summary>
+		public Pen MarkerPen {
+			get { return (Pen)GetValue(MarkerPenProperty); }
+			set { SetValue(MarkerPenProperty, value); }
+		}
+
+		private static void MarkerPenChangedCallback(DependencyObject d, DependencyPropertyChangedEventArgs e)
+		{
+			if (d is SearchPanel panel) {
+				panel.renderer.MarkerPen = (Pen)e.NewValue;
+			}
+		}
+
+		/// <summary>
+		/// Dependency property for <see cref="MarkerCornerRadius"/>.
+		/// </summary>
+		public static readonly DependencyProperty MarkerCornerRadiusProperty =
+			DependencyProperty.Register("MarkerCornerRadius", typeof(double), typeof(SearchPanel),
+										new PropertyMetadata(3.0, MarkerCornerRadiusChangedCallback));
+
+		/// <summary>
+		/// Gets/sets the corner-radius used for marking search results in the TextView.
+		/// </summary>
+		public double MarkerCornerRadius {
+			get { return (double)GetValue(MarkerCornerRadiusProperty); }
+			set { SetValue(MarkerCornerRadiusProperty, value); }
+		}
+
+		private static void MarkerCornerRadiusChangedCallback(DependencyObject d, DependencyPropertyChangedEventArgs e)
+		{
+			if (d is SearchPanel panel) {
+				panel.renderer.MarkerCornerRadius = (double)e.NewValue;
+			}
+		}
+
 		/// <summary>
 		/// Dependency property for <see cref="Localization"/>.
 		/// </summary>
@@ -135,14 +188,6 @@ namespace ICSharpCode.AvalonEdit.Search
 			set { SetValue(LocalizationProperty, value); }
 		}
 		#endregion
-
-		static void MarkerBrushChangedCallback(DependencyObject d, DependencyPropertyChangedEventArgs e)
-		{
-			SearchPanel panel = d as SearchPanel;
-			if (panel != null) {
-				panel.renderer.MarkerBrush = (Brush)e.NewValue;
-			}
-		}
 
 		static SearchPanel()
 		{
@@ -223,6 +268,22 @@ namespace ICSharpCode.AvalonEdit.Search
 				currentDocument.TextChanged -= textArea_Document_TextChanged;
 			textArea.DefaultInputHandler.NestedInputHandlers.Remove(handler);
 		}
+
+		/// <summary>
+		/// Gets or sets the delay in milliseconds between typing a character
+		/// and executing the search
+		/// </summary>
+		public int DelayBeforeSearch { get; set; } = 250;
+
+		/// <summary>
+		/// Gets the collection of search results
+		/// </summary>
+		public TextSegmentCollection<SearchResult> SearchResults => renderer.CurrentResults;
+
+		/// <summary>
+		/// Is raised when the SearchResults collection has changed
+		/// </summary>
+		public event EventHandler SearchResultsChanged;
 
 		void AttachInternal(TextArea textArea)
 		{
@@ -332,6 +393,25 @@ namespace ICSharpCode.AvalonEdit.Search
 		{
 			if (IsClosed)
 				return;
+
+			lastChangeSelection = changeSelection;
+
+			if (searchTimer == null)
+			{
+				searchTimer = new DispatcherTimer();
+				searchTimer.Tick += OnSearchTimerTick;
+			}
+			searchTimer.Stop();
+			searchTimer.Interval = TimeSpan.FromMilliseconds(Math.Max(0, DelayBeforeSearch));
+			searchTimer.Start();
+		}
+
+		private void OnSearchTimerTick(object sender, EventArgs e)
+		{
+			searchTimer?.Stop();
+
+			var changeSelection = lastChangeSelection;
+			
 			renderer.CurrentResults.Clear();
 
 			if (!string.IsNullOrEmpty(SearchPattern)) {
@@ -355,6 +435,7 @@ namespace ICSharpCode.AvalonEdit.Search
 					messageView.IsOpen = false;
 			}
 			textArea.TextView.InvalidateLayer(KnownLayer.Selection);
+			SearchResultsChanged?.Invoke(this, EventArgs.Empty);
 		}
 
 		void SelectResult(SearchResult result)
@@ -416,6 +497,7 @@ namespace ICSharpCode.AvalonEdit.Search
 
 			// Clear existing search results so that the segments don't have to be maintained
 			renderer.CurrentResults.Clear();
+			SearchResultsChanged?.Invoke(this, EventArgs.Empty);
 		}
 
 		/// <summary>

@@ -11,12 +11,6 @@ namespace dnGREP.Common
         Hex
     }
 
-    public enum FileOpenEditor
-    {
-        Default,
-        Custom
-    }
-
     public enum FileSearchType
     {
         Asterisk,
@@ -51,19 +45,25 @@ namespace dnGREP.Common
         None
     }
 
+#pragma warning disable CA1069
     public enum FileDateFilter
     {
-        None,
+        None = 0,
+        All = 0,
         Modified,
         Created
     }
+#pragma warning restore CA1069
 
+#pragma warning disable CA1069
     public enum FileTimeRange
     {
-        None,
+        None = 0,
+        All = 0,
         Dates,
         Hours
     }
+#pragma warning restore CA1069
 
     public enum OverwriteFile
     {
@@ -82,4 +82,33 @@ namespace dnGREP.Common
         Date,
         MatchCount,
     }
+
+    public enum ReportMode 
+    { 
+        FullLine, 
+        Matches,
+        Groups
+    }
+
+    public enum UniqueScope
+    { 
+        PerFile,
+        Global
+    }
+
+    public enum PdfNumberType
+    { 
+        LineNumber,
+        PageNumber
+    }
+
+    public enum MRUType
+    { 
+        SearchPath,
+        IncludePattern,
+        ExcludePattern,
+        SearchFor,
+        ReplaceWith,
+    }
+
 }

@@ -6,19 +6,15 @@ using System.Linq;
 using System.Text;
 using System.Text.RegularExpressions;
 using dnGREP.Common;
+using dnGREP.Common.IO;
 using dnGREP.Engines;
 using Xunit;
-using Xunit.Extensions;
-using Directory = Alphaleonis.Win32.Filesystem.Directory;
-using DirectoryInfo = Alphaleonis.Win32.Filesystem.DirectoryInfo;
-using File = Alphaleonis.Win32.Filesystem.File;
-using FileInfo = Alphaleonis.Win32.Filesystem.FileInfo;
-using Path = Alphaleonis.Win32.Filesystem.Path;
 
 namespace Tests
 {
-    public class GrepCoreTest : TestBase, IDisposable
+    public partial class GrepCoreTest : TestBase, IDisposable
     {
+#pragma warning disable SYSLIB1045
         private readonly string sourceFolder;
         private string destinationFolder;
 
@@ -31,7 +27,7 @@ namespace Tests
             if (Environment.Is64BitProcess)
                 SevenZip.SevenZipBase.SetLibraryPath(Path.Combine(GetDllPath(), @"7z64.dll"));
             else
-                SevenZip.SevenZipBase.SetLibraryPath(Path.Combine(GetDllPath(), @"7z.dll"));
+                SevenZip.SevenZipBase.SetLibraryPath(Path.Combine(GetDllPath(), @"7z32.dll"));
         }
 
         public string GetLongPathDestination(string leafFolder)
@@ -59,10 +55,12 @@ namespace Tests
 
         public void Dispose()
         {
+            GC.SuppressFinalize(this);
+
             // if long path, delete folder from the top of the long path
             string folder = destinationFolder;
             while (folder.Contains("aaaaaaaaaaaaaaaaaaaa"))
-                folder = Path.GetDirectoryName(folder);
+                folder = Path.GetDirectoryName(folder) ?? string.Empty;
 
             if (Directory.Exists(folder))
                 Utils.DeleteFolder(folder);
@@ -76,7 +74,7 @@ namespace Tests
             string destFolder = useLongPath ? GetLongPathDestination(Guid.NewGuid().ToString()) : destinationFolder;
 
             Utils.CopyFiles(Path.Combine(sourceFolder, "TestCase3"), Path.Combine(destFolder, "TestCase3"), null, null);
-            GrepCore core = new GrepCore();
+            GrepCore core = new();
             List<GrepSearchResult> results = core.Search(Directory.GetFiles(Path.Combine(destFolder, "TestCase3"), "*.*"),
                 SearchType.Regex, "dnGR\\wP", GrepSearchOption.CaseSensitive, -1);
             Assert.Single(results);
@@ -106,7 +104,7 @@ namespace Tests
             Assert.Equal(282, results[1].Matches.Count);
 
             Assert.Empty(core.Search(null, SearchType.Regex, "string", GrepSearchOption.Multiline, -1));
-            Assert.Empty(core.Search(new string[] { }, SearchType.Regex, "string", GrepSearchOption.Multiline, -1));
+            Assert.Empty(core.Search(Array.Empty<string>(), SearchType.Regex, "string", GrepSearchOption.Multiline, -1));
         }
 
         [Theory]
@@ -117,7 +115,7 @@ namespace Tests
             string destFolder = useLongPath ? GetLongPathDestination(Guid.NewGuid().ToString()) : destinationFolder;
 
             Utils.CopyFiles(Path.Combine(sourceFolder, "TestCase3"), Path.Combine(destFolder, "TestCase3"), null, null);
-            GrepCore core = new GrepCore();
+            GrepCore core = new();
             List<GrepSearchResult> results = core.Search(Directory.GetFiles(Path.Combine(destFolder, "TestCase3"), "*.*"), SearchType.PlainText, "dnGREP", GrepSearchOption.CaseSensitive, -1);
             Assert.Single(results);
             Assert.Equal(3, results[0].Matches.Count);
@@ -146,7 +144,7 @@ namespace Tests
             Assert.Empty(results);
 
             Assert.Empty(core.Search(null, SearchType.PlainText, "string", GrepSearchOption.Multiline, -1));
-            Assert.Empty(core.Search(new string[] { }, SearchType.PlainText, "string", GrepSearchOption.Multiline, -1));
+            Assert.Empty(core.Search(Array.Empty<string>(), SearchType.PlainText, "string", GrepSearchOption.Multiline, -1));
         }
 
         [Theory]
@@ -157,7 +155,7 @@ namespace Tests
             string destFolder = useLongPath ? GetLongPathDestination(Guid.NewGuid().ToString()) : destinationFolder;
 
             Utils.CopyFiles(Path.Combine(sourceFolder, "TestCase3"), Path.Combine(destFolder, "TestCase3"), null, null);
-            GrepCore core = new GrepCore();
+            GrepCore core = new();
             List<GrepSearchResult> results = core.Search(Directory.GetFiles(Path.Combine(destFolder, "TestCase3"), "*.*"), SearchType.PlainText, "Regex AND pattern", GrepSearchOption.CaseSensitive | GrepSearchOption.BooleanOperators, -1);
             Assert.Single(results);
             Assert.Equal(24, results[0].Matches.Count);
@@ -188,7 +186,7 @@ namespace Tests
             Assert.Equal(120, results[1].Matches.Count);
 
             Assert.Empty(core.Search(null, SearchType.PlainText, "body AND lineNumber", GrepSearchOption.BooleanOperators, -1));
-            Assert.Empty(core.Search(new string[] { }, SearchType.PlainText, "body AND lineNumber", GrepSearchOption.BooleanOperators, -1));
+            Assert.Empty(core.Search(Array.Empty<string>(), SearchType.PlainText, "body AND lineNumber", GrepSearchOption.BooleanOperators, -1));
         }
 
         [Theory]
@@ -199,7 +197,7 @@ namespace Tests
             string destFolder = useLongPath ? GetLongPathDestination(Guid.NewGuid().ToString()) : destinationFolder;
 
             Utils.CopyFiles(Path.Combine(sourceFolder, "TestCase3"), Path.Combine(destFolder, "TestCase3"), null, null);
-            GrepCore core = new GrepCore();
+            GrepCore core = new();
             List<GrepSearchResult> results = core.Search(Directory.GetFiles(Path.Combine(destFolder, "TestCase3"), "*.*"), SearchType.PlainText, "dnGREP OR asterisk", GrepSearchOption.CaseSensitive | GrepSearchOption.BooleanOperators, -1);
             Assert.Single(results);
             Assert.Equal(6, results[0].Matches.Count);
@@ -229,7 +227,7 @@ namespace Tests
             Assert.Single(results[0].Matches);
 
             Assert.Empty(core.Search(null, SearchType.PlainText, "body OR lineNumber", GrepSearchOption.BooleanOperators, -1));
-            Assert.Empty(core.Search(new string[] { }, SearchType.PlainText, "body OR lineNumber", GrepSearchOption.BooleanOperators, -1));
+            Assert.Empty(core.Search(Array.Empty<string>(), SearchType.PlainText, "body OR lineNumber", GrepSearchOption.BooleanOperators, -1));
         }
 
         [Theory]
@@ -240,7 +238,7 @@ namespace Tests
             string destFolder = useLongPath ? GetLongPathDestination(Guid.NewGuid().ToString()) : destinationFolder;
 
             Utils.CopyFiles(Path.Combine(sourceFolder, "TestCase3"), Path.Combine(destFolder, "TestCase3"), null, null);
-            GrepCore core = new GrepCore();
+            GrepCore core = new();
             List<GrepSearchResult> results = core.Search(Directory.GetFiles(Path.Combine(destFolder, "TestCase3"), "*.*"), SearchType.Regex, @"r\w+ly AND Pa\w+n", GrepSearchOption.CaseSensitive | GrepSearchOption.BooleanOperators, -1);
             Assert.Single(results);
             Assert.Equal(12, results[0].Matches.Count);
@@ -258,7 +256,7 @@ namespace Tests
             Assert.Equal(9, results[0].Matches.Count);
 
             Assert.Empty(core.Search(null, SearchType.Regex, @"\w+grep AND as.+k", GrepSearchOption.BooleanOperators, -1));
-            Assert.Empty(core.Search(new string[] { }, SearchType.Regex, @"\w+grep AND as.+k", GrepSearchOption.BooleanOperators, -1));
+            Assert.Empty(core.Search(Array.Empty<string>(), SearchType.Regex, @"\w+grep AND as.+k", GrepSearchOption.BooleanOperators, -1));
         }
 
         [Theory]
@@ -269,7 +267,7 @@ namespace Tests
             string destFolder = useLongPath ? GetLongPathDestination(Guid.NewGuid().ToString()) : destinationFolder;
 
             Utils.CopyFiles(Path.Combine(sourceFolder, "TestCase3"), Path.Combine(destFolder, "TestCase3"), null, null);
-            GrepCore core = new GrepCore();
+            GrepCore core = new();
             List<GrepSearchResult> results = core.Search(Directory.GetFiles(Path.Combine(destFolder, "TestCase3"), "*.*"), SearchType.Regex, @"r\w+ly OR H...o", GrepSearchOption.CaseSensitive | GrepSearchOption.BooleanOperators, -1);
             Assert.Equal(2, results.Count);
             Assert.Equal(6, results[0].Matches.Count);
@@ -287,7 +285,7 @@ namespace Tests
             Assert.Equal(9, results[0].Matches.Count);
 
             Assert.Empty(core.Search(null, SearchType.Regex, @"r\w+ly OR pa\w+n", GrepSearchOption.BooleanOperators, -1));
-            Assert.Empty(core.Search(new string[] { }, SearchType.Regex, @"r\w+ly OR pa\w+n", GrepSearchOption.BooleanOperators, -1));
+            Assert.Empty(core.Search(Array.Empty<string>(), SearchType.Regex, @"r\w+ly OR pa\w+n", GrepSearchOption.BooleanOperators, -1));
         }
 
         [Theory]
@@ -298,7 +296,7 @@ namespace Tests
             string destFolder = useLongPath ? GetLongPathDestination(Guid.NewGuid().ToString()) : destinationFolder;
 
             Utils.CopyFiles(Path.Combine(sourceFolder, "TestCase3"), Path.Combine(destFolder, "TestCase3"), null, null);
-            GrepCore core = new GrepCore();
+            GrepCore core = new();
             List<GrepSearchResult> results = core.Search(Directory.GetFiles(Path.Combine(destFolder, "TestCase3"), "*.*"), SearchType.PlainText, "dnGREP", GrepSearchOption.CaseSensitive, -1);
             Assert.Single(results);
             Assert.Equal("dnGREP", results[0].Pattern);
@@ -312,14 +310,17 @@ namespace Tests
             string destFolder = useLongPath ? GetLongPathDestination(Guid.NewGuid().ToString()) : destinationFolder;
 
             Utils.CopyFiles(Path.Combine(sourceFolder, "TestCase3"), Path.Combine(destFolder, "TestCase3"), null, null);
-            GrepCore core = new GrepCore();
+            GrepCore core = new();
             List<GrepSearchResult> results = core.Search(Directory.GetFiles(Path.Combine(destFolder, "TestCase3"), "*.*"), SearchType.PlainText, "public", GrepSearchOption.CaseSensitive, -1);
             Assert.True(results.Count > 1);
             results = core.Search(Directory.GetFiles(Path.Combine(destFolder, "TestCase3"), "*.*"), SearchType.PlainText, "public", GrepSearchOption.StopAfterFirstMatch, -1);
             Assert.Single(results);
-            results = core.Search(Directory.GetFiles(Path.Combine(destFolder, "TestCase3"), "*.*"), SearchType.PlainText, "", GrepSearchOption.CaseSensitive, -1);
+
+            var fileData = Utils.GetFileListIncludingArchives(new FileFilter(destFolder, "*.*", string.Empty, false, false,
+                false, true, -1, true, true, true, false, 0, 0, FileDateFilter.None, null, null));
+            results = core.ListFiles(fileData, GrepSearchOption.CaseSensitive, -1);
             Assert.True(results.Count > 1);
-            results = core.Search(Directory.GetFiles(Path.Combine(destFolder, "TestCase3"), "*.*"), SearchType.PlainText, "", GrepSearchOption.StopAfterFirstMatch, -1);
+            results = core.ListFiles(fileData, GrepSearchOption.StopAfterFirstMatch, -1);
             Assert.Single(results);
         }
 
@@ -330,7 +331,7 @@ namespace Tests
         {
             string destFolder = useLongPath ? GetLongPathDestination(Guid.NewGuid().ToString()) : destinationFolder;
             Utils.CopyFiles(Path.Combine(sourceFolder, "TestCase3"), Path.Combine(destFolder, "TestCase3"), null, null);
-            GrepCore core = new GrepCore();
+            GrepCore core = new();
             List<GrepSearchResult> results = core.Search(Directory.GetFiles(Path.Combine(destFolder, "TestCase3"), "test-file-plain-big.txt"), SearchType.PlainText, "string", GrepSearchOption.CaseSensitive, -1);
             Assert.Single(results);
             var resultLines = results[0].GetLinesWithContext(3, 3);
@@ -338,7 +339,7 @@ namespace Tests
             foreach (var line in resultLines)
             {
                 if (line.LineNumber <= lastLine)
-                    Assert.True(false, "Lines are not sequential");
+                    Assert.Fail("Lines are not sequential");
                 lastLine = line.LineNumber;
             }
         }
@@ -351,7 +352,7 @@ namespace Tests
             string destFolder = useLongPath ? GetLongPathDestination(Guid.NewGuid().ToString()) : destinationFolder;
 
             Utils.CopyFiles(Path.Combine(sourceFolder, "TestCase4"), Path.Combine(destFolder, "TestCase4"), null, null);
-            GrepCore core = new GrepCore();
+            GrepCore core = new();
             List<GrepSearchResult> results = core.Search(Directory.GetFiles(Path.Combine(destFolder, "TestCase4"), "app.config"), SearchType.XPath,
                 "//setting", GrepSearchOption.CaseSensitive, -1);
             Assert.Single(results);
@@ -366,7 +367,7 @@ namespace Tests
             string destFolder = useLongPath ? GetLongPathDestination(Guid.NewGuid().ToString()) : destinationFolder;
 
             Utils.CopyFiles(Path.Combine(sourceFolder, "TestCase4"), Path.Combine(destFolder, "TestCase4"), null, null);
-            GrepCore core = new GrepCore();
+            GrepCore core = new();
             List<GrepSearchResult> results = core.Search(Directory.GetFiles(Path.Combine(destFolder, "TestCase4"), "app.config"), SearchType.XPath,
                 "//setting", GrepSearchOption.CaseSensitive, -1);
             Assert.Single(results);
@@ -382,7 +383,7 @@ namespace Tests
             string destFolder = useLongPath ? GetLongPathDestination(Guid.NewGuid().ToString()) : destinationFolder;
 
             Utils.CopyFiles(Path.Combine(sourceFolder, "TestCase4"), Path.Combine(destFolder, "TestCase4"), null, null);
-            GrepCore core = new GrepCore();
+            GrepCore core = new();
             List<GrepSearchResult> results = core.Search(Directory.GetFiles(Path.Combine(destFolder, "TestCase4"), "books_no_decl.xml"),
                 SearchType.XPath, "//book/price", GrepSearchOption.CaseSensitive, -1);
             Assert.Single(results);
@@ -404,7 +405,7 @@ namespace Tests
             string destFolder = useLongPath ? GetLongPathDestination(Guid.NewGuid().ToString()) : destinationFolder;
 
             Utils.CopyFiles(Path.Combine(sourceFolder, "TestCase4"), Path.Combine(destFolder, "TestCase4"), null, null);
-            GrepCore core = new GrepCore();
+            GrepCore core = new();
             List<GrepSearchResult> results = core.Search(Directory.GetFiles(Path.Combine(destFolder, "TestCase4"), "books_no_decl.xml"),
                 SearchType.XPath, "(//@category)[2]", GrepSearchOption.None, -1);
             Assert.Single(results);
@@ -417,9 +418,9 @@ namespace Tests
             }
 
             string testFile = Path.Combine(destinationFolder, "TestCase4", "books_no_decl.xml");
-            List<ReplaceDef> files = new List<ReplaceDef>
+            List<ReplaceDef> files = new()
             {
-                new ReplaceDef(testFile, results[0].Matches)
+                new(testFile, results[0].Matches)
             };
             core.Replace(files, SearchType.XPath, "(//@category)[2]", "general", GrepSearchOption.None, -1);
 
@@ -437,7 +438,7 @@ namespace Tests
             string destFolder = useLongPath ? GetLongPathDestination(Guid.NewGuid().ToString()) : destinationFolder;
 
             Utils.CopyFiles(Path.Combine(sourceFolder, "TestCase4"), Path.Combine(destFolder, "TestCase4"), null, null);
-            GrepCore core = new GrepCore();
+            GrepCore core = new();
             List<GrepSearchResult> results = core.Search(Directory.GetFiles(Path.Combine(destFolder, "TestCase4"), "books_no_decl.xml"),
                 SearchType.XPath, "(//@currency)", GrepSearchOption.None, -1);
             Assert.Single(results);
@@ -448,9 +449,9 @@ namespace Tests
             results[0].Matches[3].ReplaceMatch = true;
 
             string testFile = Path.Combine(destinationFolder, "TestCase4", "books_no_decl.xml");
-            List<ReplaceDef> files = new List<ReplaceDef>
+            List<ReplaceDef> files = new()
             {
-                new ReplaceDef(testFile, results[0].Matches)
+                new(testFile, results[0].Matches)
             };
             core.Replace(files, SearchType.XPath, "(//@currency)", "EUR", GrepSearchOption.None, -1);
 
@@ -466,7 +467,7 @@ namespace Tests
             string destFolder = useLongPath ? GetLongPathDestination(Guid.NewGuid().ToString()) : destinationFolder;
 
             Utils.CopyFiles(Path.Combine(sourceFolder, "TestCase4"), Path.Combine(destFolder, "TestCase4"), null, null);
-            GrepCore core = new GrepCore();
+            GrepCore core = new();
             List<GrepSearchResult> results = core.Search(Directory.GetFiles(Path.Combine(destFolder, "TestCase4"), "app.config"), SearchType.XPath,
                 "//appSettings", GrepSearchOption.CaseSensitive, -1);
             Assert.Single(results);
@@ -482,9 +483,9 @@ namespace Tests
             }
 
             string testFile = Path.Combine(destFolder, @"TestCase4\app.config");
-            List<ReplaceDef> files = new List<ReplaceDef>
+            List<ReplaceDef> files = new()
             {
-                new ReplaceDef(testFile, results[0].Matches)
+                new(testFile, results[0].Matches)
             };
 
             string replaceText = "<add key=\"test\" value=\"true\" />";
@@ -507,7 +508,7 @@ namespace Tests
             string destFolder = useLongPath ? GetLongPathDestination(Guid.NewGuid().ToString()) : destinationFolder;
 
             Utils.CopyFiles(Path.Combine(sourceFolder, "TestCase15"), Path.Combine(destFolder, "TestCase15"), null, null);
-            GrepCore core = new GrepCore();
+            GrepCore core = new();
             List<GrepSearchResult> results = core.Search(Directory.GetFiles(Path.Combine(destFolder, "TestCase15"), "books.xml"), SearchType.XPath,
                 "/bookstore/book/title[1]/@lang", GrepSearchOption.None, -1);
             Assert.Single(results);
@@ -520,9 +521,9 @@ namespace Tests
             }
 
             string testFile = Path.Combine(destFolder, @"TestCase15\books.xml");
-            List<ReplaceDef> files = new List<ReplaceDef>
+            List<ReplaceDef> files = new()
             {
-                new ReplaceDef(testFile, results[0].Matches)
+                new(testFile, results[0].Matches)
             };
 
             string replaceText = "dnGrep";
@@ -553,7 +554,7 @@ namespace Tests
             string destFolder = destinationFolder;
 
             Utils.CopyFiles(Path.Combine(sourceFolder, "TestCase18"), Path.Combine(destFolder, "TestCase18"), null, null);
-            GrepCore core = new GrepCore();
+            GrepCore core = new();
             List<GrepSearchResult> results = core.Search(Directory.GetFiles(Path.Combine(destFolder, "TestCase18"), fileName), SearchType.XPath,
                 "/bookstore/book[1]", GrepSearchOption.None, -1);
             Assert.Single(results);
@@ -570,7 +571,7 @@ namespace Tests
             string destFolder = useLongPath ? GetLongPathDestination(Guid.NewGuid().ToString()) : destinationFolder;
 
             Utils.CopyFiles(Path.Combine(sourceFolder, "TestCase10"), Path.Combine(destFolder, "TestCase10"), null, null);
-            GrepCore core = new GrepCore();
+            GrepCore core = new();
             List<GrepSearchResult> results = core.Search(Directory.GetFiles(Path.Combine(destFolder, "TestCase10"), "issue-114.txt"), SearchType.Regex, "protected", GrepSearchOption.WholeWord, -1);
             Assert.Single(results);
             Assert.Single(results[0].SearchResults);
@@ -584,10 +585,76 @@ namespace Tests
             string destFolder = useLongPath ? GetLongPathDestination(Guid.NewGuid().ToString()) : destinationFolder;
 
             Utils.CopyFiles(Path.Combine(sourceFolder, "TestCase10"), Path.Combine(destFolder, "TestCase10"), null, null);
-            GrepCore core = new GrepCore();
+            GrepCore core = new();
             List<GrepSearchResult> results = core.Search(Directory.GetFiles(Path.Combine(destFolder, "TestCase10"), "issue-114.txt"), SearchType.PlainText, "protected", GrepSearchOption.WholeWord, -1);
             Assert.Single(results);
             Assert.Single(results[0].SearchResults);
+        }
+
+        [Theory]
+        [InlineData(@"b\w+k", "book shop", 1, 1, 4)]
+        [InlineData(@"b\w+k", "bank shop", 1, 1, 4)]
+        [InlineData(@"b\w+k", " book shop", 1, 1, 4)]
+        [InlineData(@"b\w+k", "the book shop", 1, 1, 4)]
+        [InlineData(@"b\w+k", "cook book", 1, 1, 4)]
+        [InlineData(@"b\w+k", "cook b00k", 1, 1, 4)]
+        [InlineData(@"b\w+k", "\tbook shop", 1, 1, 4)]
+        [InlineData(@"b\w+k", "\tbook\tshop", 1, 1, 4)]
+        [InlineData(@"b\w+k", " bookmark shop", 1, 1, 8)]
+        [InlineData(@"b\w+k", " cookbook shop", 0, 0, 0)]
+        [InlineData(@"b\w+k", "cookbook shop", 0, 0, 0)]
+        [InlineData(@"b\w+k", "1cookbook shop", 0, 0, 0)]
+        [InlineData(@"book", "abc1book shop", 0, 0, 0)]
+        [InlineData(@"book", "abc#book shop", 1, 1, 4)]
+        [InlineData(@"book shop", "the book shop store", 1, 1, 9)]
+        [InlineData(@"b.*\ss.*p", "the book shop store", 1, 1, 9)]
+        [InlineData(@"\bb\w+k", "book shop", 1, 1, 4)]
+        [InlineData(@"\bb\w+k\ss\w+\b", "the book shop", 1, 1, 9)]
+        [InlineData(@"b\w+k", "\r\nbook shop", 1, 1, 4)]
+        [InlineData(@"b\w+k", "book\r\nshop", 1, 1, 4)]
+        [InlineData(@"b\w+k", "\r\nbook\r\nshop", 1, 1, 4)]
+        [InlineData(@"book ", "book shop", 1, 1, 5)]
+        [InlineData(@"book ", "the book shop", 1, 1, 5)]
+        [InlineData(@" book", "book shop", 0, 0, 0)]
+        [InlineData(@" book", "the book shop", 1, 1, 5)]
+        [InlineData(@" book ", "the book shop", 1, 1, 6)]
+        [InlineData(@"shop\p{P}", "the book shop, the book shop. the book shop? the book shop", 1, 3, 5)]
+        [InlineData(@"shop\p{P}", "the book shop.", 1, 1, 5)]
+        [InlineData(@"shop\p{P}", "the book shop.a", 1, 1, 5)]
+        [InlineData(@"shop\p{P}", "the book \"shop\"", 1, 1, 5)]
+        [InlineData(@"shop\p{P}", "the book \"shop\"a", 1, 1, 5)]
+        [InlineData(@"%temp%", "write to the %temp% directory", 1, 1, 6)]
+        [InlineData(@"i\w+e", " include ", 1, 1, 7)]
+        [InlineData(@"i\w+e", " included", 0, 0, 0)]
+        [InlineData(@"#include", "#include", 1, 1, 8)]
+        [InlineData(@"#include", "abc#include", 1, 1, 8)]// I think this should fail, but does not
+        [InlineData(@"#include", "#include#", 1, 1, 8)]
+        [InlineData(@"#include", "#include \"header.h\"", 1, 1, 8)]
+        [InlineData(@"#include", "\\\\s*#include\\\\s*", 1, 1, 8)]
+        [InlineData(@"#include", "pragma message(\"#include \" __FILE__)", 1, 1, 8)]
+        [InlineData(@"#\w+", "#include", 1, 1, 8)]
+        [InlineData(@"#\w+", "#include#", 1, 1, 8)]
+        [InlineData(@"#\w+", "#include \"header.h\"", 1, 1, 8)]
+        [InlineData(@"#\w+", "\\\\s*#include\\\\s*", 1, 1, 8)]
+        [InlineData(@"#\w+", "pragma message(\"#include \" __FILE__)", 1, 1, 8)]
+        [InlineData(@"#\w+e", "#include's", 1, 1, 8)]
+        [InlineData(@"#\w+e", "#includes", 0, 0, 0)]
+        [InlineData(@"red|green|blue", "DarkRed Red GreenYellow LightGreen Green SpringGreen RoyalBlue", 1, 2, 3)]
+        public void TestRegexWholeWord(string pattern, string text, int expectedResultCount, int expectedMatchCount, int expectedMatchLength)
+        {
+            // Issue #813
+            GrepEnginePlainText engine = new();
+            var encoding = Encoding.UTF8;
+            using Stream inputStream = new MemoryStream(encoding.GetBytes(text));
+            var results = engine.Search(inputStream, "test.txt", pattern, SearchType.Regex, GrepSearchOption.WholeWord, encoding);
+
+            Assert.Equal(expectedResultCount, results.Count);
+
+            if (expectedResultCount > 0)
+            {
+                Assert.Equal(expectedMatchCount, results[0].Matches.Count);
+                Assert.Equal(expectedMatchLength, results[0].Matches[0].Length);
+            }
         }
 
         [Fact]
@@ -623,22 +690,22 @@ namespace Tests
             string testFile = Path.Combine(path, @"test.txt");
             File.WriteAllText(testFile, input);
 
-            GrepCore core = new GrepCore();
+            GrepCore core = new();
             List<GrepSearchResult> results = core.Search(Directory.GetFiles(path, "test.txt"), SearchType.Regex, pattern, GrepSearchOption.None, -1);
-            
+
             // mark all matches for replace
             foreach (var match in results[0].Matches)
             {
                 match.ReplaceMatch = true;
             }
-            List<ReplaceDef> files = new List<ReplaceDef>
+            List<ReplaceDef> files = new()
             {
-                new ReplaceDef(testFile, results[0].Matches)
+                new(testFile, results[0].Matches)
             };
 
             core.Replace(files, SearchType.Regex, pattern, replace, GrepSearchOption.None, -1);
 
-            Assert.True(File.ReadAllText(testFile).Contains(expected, StringComparison.InvariantCulture));
+            Assert.True(File.ReadAllText(testFile).Contains(expected, StringComparison.Ordinal));
         }
 
         [Theory]
@@ -649,7 +716,7 @@ namespace Tests
             string destFolder = useLongPath ? GetLongPathDestination(Guid.NewGuid().ToString()) : destinationFolder;
 
             Utils.CopyFiles(Path.Combine(sourceFolder, "TestCase8"), Path.Combine(destFolder, "TestCase8"), null, null);
-            GrepCore core = new GrepCore();
+            GrepCore core = new();
             List<GrepSearchResult> results = core.Search(Directory.GetFiles(Path.Combine(destFolder, "TestCase8"), "test.txt"), SearchType.Regex, "here", GrepSearchOption.None, -1);
             Assert.Single(results);
             Assert.Single(results[0].SearchResults);
@@ -661,16 +728,14 @@ namespace Tests
             }
 
             string testFile = Path.Combine(destFolder, @"TestCase8\test.txt");
-            List<ReplaceDef> files = new List<ReplaceDef>
+            List<ReplaceDef> files = new()
             {
-                new ReplaceDef(testFile, results[0].Matches)
+                new(testFile, results[0].Matches)
             };
 
             core.Replace(files, SearchType.Regex, "here", "\\\\n", GrepSearchOption.None, -1);
             Assert.Equal(2, File.ReadAllText(testFile, Encoding.ASCII).Trim().Split('\n').Length);
         }
-
-        private readonly Regex guidPattern = new Regex("[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}");
 
         [Theory]
         [InlineData(SearchType.Regex, true)]
@@ -684,7 +749,7 @@ namespace Tests
             string destFolder = useLongPath ? GetLongPathDestination(Guid.NewGuid().ToString()) : destinationFolder;
 
             Utils.CopyFiles(Path.Combine(sourceFolder, "TestCase9"), Path.Combine(destFolder, "TestCase9"), null, null);
-            GrepCore core = new GrepCore();
+            GrepCore core = new();
             List<GrepSearchResult> results = core.Search(Directory.GetFiles(Path.Combine(destFolder, "TestCase9"), "test.txt"),
                 type, "here", GrepSearchOption.None, -1);
             Assert.Single(results);
@@ -697,21 +762,21 @@ namespace Tests
             }
 
             string testFile = Path.Combine(destFolder, @"TestCase9\test.txt");
-            List<ReplaceDef> files = new List<ReplaceDef>
+            List<ReplaceDef> files = new()
             {
-                new ReplaceDef(testFile, results[0].Matches)
+                new(testFile, results[0].Matches)
             };
 
             core.Replace(files, type, "here", "$(guid)", GrepSearchOption.None, -1);
             string fileContent = File.ReadAllText(testFile, Encoding.UTF8).Trim();
-            Assert.Equal(6, guidPattern.Matches(fileContent).Count);
-            HashSet<string> uniqueGuids = new HashSet<string>();
-            foreach (Match match in guidPattern.Matches(fileContent))
+            Assert.Equal(6, GuidRegex().Matches(fileContent).Count);
+            HashSet<string> uniqueGuids = new();
+            foreach (Match match in GuidRegex().Matches(fileContent).Cast<Match>())
             {
                 if (!uniqueGuids.Contains(match.Value))
                     uniqueGuids.Add(match.Value);
                 else
-                    Assert.True(false, "All GUIDs should be unique.");
+                    Assert.Fail("All GUIDs should be unique.");
             }
         }
 
@@ -719,7 +784,7 @@ namespace Tests
         public void TestGuidxReplaceWithPatternRegex()
         {
             Utils.CopyFiles(Path.Combine(sourceFolder, "TestCase9"), Path.Combine(destinationFolder, "TestCase9"), null, null);
-            GrepCore core = new GrepCore();
+            GrepCore core = new();
             List<GrepSearchResult> results = core.Search(Directory.GetFiles(Path.Combine(destinationFolder, "TestCase9"), "guidx.txt"),
                 SearchType.Regex, "h\\wre", GrepSearchOption.None, -1);
             Assert.Single(results);
@@ -732,17 +797,17 @@ namespace Tests
             }
 
             string testFile = Path.Combine(destinationFolder, @"TestCase9\guidx.txt");
-            List<ReplaceDef> files = new List<ReplaceDef>
+            List<ReplaceDef> files = new()
             {
-                new ReplaceDef(testFile, results[0].Matches)
+                new(testFile, results[0].Matches)
             };
 
             // all instances of the same string matched will get the same guid
             core.Replace(files, SearchType.Regex, "h\\wre", "$(guidx)", GrepSearchOption.None, -1);
             string fileContent = File.ReadAllText(testFile, Encoding.UTF8).Trim();
-            Assert.Equal(6, guidPattern.Matches(fileContent).Count);
-            Dictionary<string, int> uniqueGuids = new Dictionary<string, int>();
-            foreach (Match match in guidPattern.Matches(fileContent))
+            Assert.Equal(6, GuidRegex().Matches(fileContent).Count);
+            Dictionary<string, int> uniqueGuids = new();
+            foreach (Match match in GuidRegex().Matches(fileContent).Cast<Match>())
             {
                 if (!uniqueGuids.ContainsKey(match.Value))
                     uniqueGuids[match.Value] = 1;
@@ -764,7 +829,7 @@ namespace Tests
         {
             // Test for Issue #227
             Utils.CopyFiles(Path.Combine(sourceFolder, "TestCase15"), Path.Combine(destinationFolder, "TestCase15"), null, null);
-            GrepCore core = new GrepCore();
+            GrepCore core = new();
             List<GrepSearchResult> results = core.Search(Directory.GetFiles(Path.Combine(destinationFolder, "TestCase15"), "books.xml"),
                 type, searchFor, option, -1);
             Assert.Single(results);
@@ -776,14 +841,14 @@ namespace Tests
             }
 
             string testFile = Path.Combine(destinationFolder, "TestCase15", "books.xml");
-            List<ReplaceDef> files = new List<ReplaceDef>
+            List<ReplaceDef> files = new()
             {
-                new ReplaceDef(testFile, results[0].Matches)
+                new(testFile, results[0].Matches)
             };
             core.Replace(files, type, searchFor, replaceWith, option, -1);
 
             using (FileStream stream = File.Open(testFile, FileMode.Open, FileAccess.Read, FileShare.Read))
-            using (StreamReader reader = new StreamReader(stream, true))
+            using (StreamReader reader = new(stream, true))
             {
                 Assert.Equal(Encoding.UTF8, reader.CurrentEncoding);
                 // check there is no BOM
@@ -814,7 +879,7 @@ namespace Tests
         {
             // Test for Issue #227 dnGrep inserting extra BOM, and scrambling file
             Utils.CopyFiles(Path.Combine(sourceFolder, "TestCase15"), Path.Combine(destinationFolder, "TestCase15"), null, null);
-            GrepCore core = new GrepCore();
+            GrepCore core = new();
             List<GrepSearchResult> results = core.Search(Directory.GetFiles(Path.Combine(destinationFolder, "TestCase15"), "books_bom.xml"),
                 type, searchFor, option, -1);
             Assert.Single(results);
@@ -826,14 +891,14 @@ namespace Tests
             }
 
             string testFile = Path.Combine(destinationFolder, "TestCase15", "books_bom.xml");
-            List<ReplaceDef> files = new List<ReplaceDef>
+            List<ReplaceDef> files = new()
             {
-                new ReplaceDef(testFile, results[0].Matches)
+                new(testFile, results[0].Matches)
             };
             core.Replace(files, type, searchFor, replaceWith, option, -1);
 
             using (FileStream stream = File.Open(testFile, FileMode.Open, FileAccess.Read, FileShare.Read))
-            using (StreamReader reader = new StreamReader(stream, true))
+            using (StreamReader reader = new(stream, true))
             {
                 Assert.Equal(Encoding.UTF8, reader.CurrentEncoding);
                 // check there is a BOM
@@ -868,7 +933,7 @@ namespace Tests
         public void TestSearchAndFilteredReplace(SearchType type, GrepSearchOption option, string searchFor, string replaceWith)
         {
             Utils.CopyFiles(Path.Combine(sourceFolder, "TestCase15"), Path.Combine(destinationFolder, "TestCase15"), null, null);
-            GrepCore core = new GrepCore();
+            GrepCore core = new();
             List<GrepSearchResult> results = core.Search(Directory.GetFiles(Path.Combine(destinationFolder, "TestCase15"), "books.xml"),
                 type, searchFor, option, -1);
             Assert.Single(results);
@@ -878,16 +943,16 @@ namespace Tests
             results[0].Matches[1].ReplaceMatch = true;
 
             string testFile = Path.Combine(destinationFolder, "TestCase15", "books.xml");
-            List<ReplaceDef> files = new List<ReplaceDef>
+            List<ReplaceDef> files = new()
             {
-                new ReplaceDef(testFile, results[0].Matches)
+                new(testFile, results[0].Matches)
             };
             core.Replace(files, type, searchFor, replaceWith, option, -1);
 
             var fileContent = File.ReadAllText(testFile, Encoding.UTF8);
             Assert.Contains("<year>2003</year>", fileContent);
-            Assert.Single(Regex.Matches(fileContent, "2002"));
-            Assert.Single(Regex.Matches(fileContent, "2003"));
+            Assert.Single(Regex.Matches(fileContent, "2002").Cast<Match>());
+            Assert.Single(Regex.Matches(fileContent, "2003").Cast<Match>());
         }
 
         [Theory]
@@ -898,7 +963,7 @@ namespace Tests
             string destFolder = useLongPath ? GetLongPathDestination(Guid.NewGuid().ToString()) : destinationFolder;
 
             Utils.CopyFiles(Path.Combine(sourceFolder, "TestCase3"), Path.Combine(destinationFolder, "TestCase3"), null, null);
-            GrepCore core = new GrepCore();
+            GrepCore core = new();
             List<GrepSearchResult> results = core.Search(Directory.GetFiles(Path.Combine(destFolder, "TestCase3"), "test-file-code.cs"),
                 SearchType.PlainText, "body", GrepSearchOption.None, -1);
             Assert.Single(results);
@@ -911,9 +976,9 @@ namespace Tests
             }
 
             string testFile = Path.Combine(destFolder, @"TestCase3\test-file-code.cs");
-            List<ReplaceDef> files = new List<ReplaceDef>
+            List<ReplaceDef> files = new()
             {
-                new ReplaceDef(testFile, results[0].Matches)
+                new(testFile, results[0].Matches)
             };
 
             core.Replace(files, SearchType.PlainText, "body", "text", GrepSearchOption.None, -1);
@@ -921,7 +986,7 @@ namespace Tests
             Assert.DoesNotContain("body", content);
             Assert.Contains("text", content);
 
-            core.Undo(files);
+            GrepCore.Undo(files);
             content = File.ReadAllText(testFile, Encoding.ASCII);
             Assert.DoesNotContain("text", content);
             Assert.Contains("body", content);
@@ -937,7 +1002,7 @@ namespace Tests
             string destFolder = useLongPath ? GetLongPathDestination(Guid.NewGuid().ToString()) : destinationFolder;
 
             Utils.CopyFiles(Path.Combine(sourceFolder, "TestCase12"), Path.Combine(destFolder, "TestCase12"), null, null);
-            GrepCore core = new GrepCore();
+            GrepCore core = new();
             List<GrepSearchResult> results = core.Search(Directory.GetFiles(Path.Combine(destFolder, "TestCase12"), "issue-165.txt"),
                 type, "asdf\r\nqwer", GrepSearchOption.Multiline, -1);
             Assert.Single(results);
@@ -957,11 +1022,11 @@ namespace Tests
         public void TestSearchLongLineWithManyMatches(SearchType type, GrepSearchOption option, bool verbose)
         {
             Utils.CopyFiles(Path.Combine(sourceFolder, "TestCase14"), Path.Combine(destinationFolder, "TestCase14"), null, null);
-            GrepCore core = new GrepCore
+            GrepCore core = new()
             {
-                SearchParams = new GrepEngineInitParams(false, 0, 0, 0.5, verbose, false)
+                SearchParams = new(false, 0, 0, 0.5, verbose, false)
             };
-            Stopwatch sw = new Stopwatch();
+            Stopwatch sw = new();
             sw.Start();
             List<GrepSearchResult> results = core.Search(Directory.GetFiles(Path.Combine(destinationFolder, "TestCase14"), "*.txt"),
                 type, "1234", option, -1);
@@ -994,7 +1059,7 @@ namespace Tests
             content = line + "\r\n" + line + "\r\n" + line + "\r\n";
             File.WriteAllText(Path.Combine(path, @"Issue210win.txt"), content);
 
-            GrepCore core = new GrepCore();
+            GrepCore core = new();
             List<GrepSearchResult> results = core.Search(Directory.GetFiles(path, "*.txt"), SearchType.Regex, @"[3-9]\d*?.\d\d\d$", GrepSearchOption.None, -1);
             // should be four test files with no EOL, Windows, Unix, and Mac EOL
             Assert.Equal(4, results.Count);
@@ -1039,7 +1104,7 @@ namespace Tests
             content = line + "\r\n" + line + "\r\n" + line + "\r\n";
             File.WriteAllText(Path.Combine(path, @"Issue210win.txt"), content);
 
-            GrepCore core = new GrepCore();
+            GrepCore core = new();
             List<GrepSearchResult> results = core.Search(Directory.GetFiles(path, "*.txt"), SearchType.Regex, @"[3-9]\d*?.\d\d\d$", GrepSearchOption.Multiline, -1);
             // should be four test files with no EOL, Windows, Unix, and Mac EOL
             Assert.Equal(4, results.Count);
@@ -1070,7 +1135,7 @@ namespace Tests
             string destFolder = useLongPath ? GetLongPathDestination(Guid.NewGuid().ToString()) : destinationFolder;
 
             Utils.CopyFiles(Path.Combine(sourceFolder, "TestCase3"), Path.Combine(destinationFolder, "TestCase3"), null, null);
-            GrepCore core = new GrepCore();
+            GrepCore core = new();
             List<GrepSearchResult> results = core.Search(Directory.GetFiles(Path.Combine(destFolder, "TestCase3"), "test-file-code.cs"),
                 SearchType.Regex, @"\w*y", GrepSearchOption.None, -1);
             Assert.Single(results);
@@ -1083,16 +1148,16 @@ namespace Tests
             }
 
             string testFile = Path.Combine(destFolder, @"TestCase3\test-file-code.cs");
-            List<ReplaceDef> files = new List<ReplaceDef>
+            List<ReplaceDef> files = new()
             {
-                new ReplaceDef(testFile, results[0].Matches)
+                new(testFile, results[0].Matches)
             };
 
             core.Replace(files, SearchType.Regex, @"\w*y", @"$&Text", GrepSearchOption.None, -1);
             string content = File.ReadAllText(testFile, Encoding.ASCII);
             Assert.Contains("bodyText", content);
 
-            core.Undo(files);
+            GrepCore.Undo(files);
             content = File.ReadAllText(testFile, Encoding.ASCII);
             Assert.DoesNotContain("bodyText", content);
             Assert.Contains("body", content);
@@ -1106,7 +1171,7 @@ namespace Tests
             string destFolder = useLongPath ? GetLongPathDestination(Guid.NewGuid().ToString()) : destinationFolder;
 
             Utils.CopyFiles(Path.Combine(sourceFolder, "TestCase3"), Path.Combine(destinationFolder, "TestCase3"), null, null);
-            GrepCore core = new GrepCore();
+            GrepCore core = new();
             List<GrepSearchResult> results = core.Search(Directory.GetFiles(Path.Combine(destFolder, "TestCase3"), "test-file-code.cs"),
                 SearchType.Regex, @"-(\d)", GrepSearchOption.None, -1);
             Assert.Single(results);
@@ -1119,9 +1184,9 @@ namespace Tests
             }
 
             string testFile = Path.Combine(destFolder, @"TestCase3\test-file-code.cs");
-            List<ReplaceDef> files = new List<ReplaceDef>
+            List<ReplaceDef> files = new()
             {
-                new ReplaceDef(testFile, results[0].Matches)
+                new(testFile, results[0].Matches)
             };
 
             core.Replace(files, SearchType.Regex, @"-(\d)", @"$1", GrepSearchOption.None, -1);
@@ -1129,21 +1194,21 @@ namespace Tests
             Assert.DoesNotContain("= -1;", content);
             Assert.Contains("= 1;", content);
 
-            core.Undo(files);
+            GrepCore.Undo(files);
             content = File.ReadAllText(testFile, Encoding.ASCII);
             Assert.DoesNotContain("= 1;", content);
             Assert.Contains("= -1;", content);
         }
 
         [Theory]
-        //[InlineData("lorem_unix.txt", @"\\n", false)]
+        [InlineData("lorem_unix.txt", @"\\n", false)]
         [InlineData("lorem_win.txt", @"\\r\\n", false)]
         public void TestMultilineSearchAndReplace(string fileName, string newLine, bool useLongPath)
         {
             string destFolder = useLongPath ? GetLongPathDestination(Guid.NewGuid().ToString()) : destinationFolder;
 
             Utils.CopyFiles(Path.Combine(sourceFolder, "TestCase16"), Path.Combine(destinationFolder, "TestCase16"), null, null);
-            GrepCore core = new GrepCore();
+            GrepCore core = new();
             List<GrepSearchResult> results = core.Search(Directory.GetFiles(Path.Combine(destFolder, "TestCase16"), fileName),
                 SearchType.Regex, @"\w*\.$.P\w*", GrepSearchOption.Multiline | GrepSearchOption.SingleLine, -1);
             Assert.Single(results);
@@ -1163,9 +1228,9 @@ namespace Tests
             }
 
             string testFile = Path.Combine(destFolder, @"TestCase16", fileName);
-            List<ReplaceDef> files = new List<ReplaceDef>
+            List<ReplaceDef> files = new()
             {
-                new ReplaceDef(testFile, results[0].Matches)
+                new(testFile, results[0].Matches)
             };
 
             core.Replace(files, SearchType.Regex, @"\w*\.$.P\w*", $"end.{newLine}Start", GrepSearchOption.Multiline | GrepSearchOption.SingleLine, -1);
@@ -1190,15 +1255,15 @@ namespace Tests
         {
             string testCase17 = Path.Combine(sourceFolder, @"TestCase17");
             string destFolder = Path.Combine(destinationFolder, @"TestCase17");
-            DirectoryInfo di = new DirectoryInfo(destFolder);
+            DirectoryInfo di = new(destFolder);
             if (!di.Exists)
             {
                 di.Create();
-                Directory.Copy(testCase17, destFolder);
+                DirectoryEx.Copy(testCase17, destFolder);
             }
 
-            GrepCore core = new GrepCore();
-            var files = Utils.GetFileList(destFolder, namePattern, null, false, false, true, true,
+            GrepCore core = new();
+            var files = Utils.GetFileList(destFolder, namePattern, string.Empty, false, false, true, true,
                 true, true, false, 0, 0, FileDateFilter.None, null, null, false, -1);
             List<GrepSearchResult> results = core.Search(files, SearchType.PlainText, searchText, GrepSearchOption.None, -1);
             Assert.Equal(expected, results.Count);
@@ -1213,42 +1278,32 @@ namespace Tests
             string longDestinationFolder = GetLongPathDestination(Guid.NewGuid().ToString());
             string testCase17 = Path.Combine(sourceFolder, @"TestCase17");
             string destFolder = Path.Combine(longDestinationFolder, @"TestCase17");
-            DirectoryInfo di = new DirectoryInfo(destFolder);
+            DirectoryInfo di = new(destFolder);
             if (!di.Exists)
             {
                 di.Create();
-                Directory.Copy(testCase17, destFolder);
+                DirectoryEx.Copy(testCase17, destFolder);
             }
 
-            GrepCore core = new GrepCore();
-            var files = Utils.GetFileList(destFolder, namePattern, null, false, false, true, true,
+            GrepCore core = new();
+            var files = Utils.GetFileList(destFolder, namePattern, string.Empty, false, false, true, true,
                 true, true, false, 0, 0, FileDateFilter.None, null, null, false, -1);
             List<GrepSearchResult> results = core.Search(files, SearchType.PlainText, searchText, GrepSearchOption.None, -1);
             Assert.Equal(expected, results.Count);
         }
 
         [Theory]
-        [InlineData("abcd", "a.*", 4)]
-        [InlineData("abcd", "a.*$", 4)]
-        [InlineData("abcd\rline2\rline3\r", "a.*", 4)]
-        [InlineData("abcd\nline2\nline3\n", "a.*", 4)]
-        [InlineData("abcd\r\nline2\r\nline3\r\n", "a.*", 4)]
-        [InlineData("abcd\rline2\rline3\r", "a.*$", 4)]
-        [InlineData("abcd\nline2\nline3\n", "a.*$", 4)]
-        [InlineData("abcd\r\nline2\r\nline3\r\n", "a.*$", 4)]
-        [InlineData("line1\rline2\rabcd\r", "a.*", 4)]
-        [InlineData("line1\nline2\nabcd\n", "a.*", 4)]
-        [InlineData("line1\r\nline2\r\nabcd\r\n", "a.*", 4)]
-        [InlineData("line1\rline2\rabcd\r", "a.*$", 4)]
-        [InlineData("line1\nline2\nabcd\n", "a.*$", 4)]
-        [InlineData("line1\r\nline2\r\nabcd\r\n", "a.*$", 4)]
-        [InlineData("line1\rline2\rabcd", "a.*", 4)]
-        [InlineData("line1\nline2\nabcd", "a.*", 4)]
-        [InlineData("line1\r\nline2\r\nabcd", "a.*", 4)]
-        [InlineData("line1\rline2\rabcd", "a.*$", 4)]
-        [InlineData("line1\nline2\nabcd", "a.*$", 4)]
-        [InlineData("line1\r\nline2\r\nabcd", "a.*$", 4)]
-        public void TestRegexShouldNotReturnNewlineChar(string content, string pattern, int count)
+        [InlineData("plum apple\norange\n", "p..", GrepSearchOption.None, 0, 3, 6, 3)]
+        [InlineData("plum apple\r\norange\r\n", "p..", GrepSearchOption.None, 0, 3, 6, 3)]
+        [InlineData("plum apple\norange\n", "p..", GrepSearchOption.Multiline, 0, 3, 6, 3)]
+        [InlineData("plum apple\r\norange\r\n", "p..", GrepSearchOption.Multiline, 0, 3, 6, 3)]
+        [InlineData("plum apple\norange\n", "p..", GrepSearchOption.Multiline | GrepSearchOption.SingleLine, 0, 3, 6, 3)]
+        [InlineData("plum apple\r\norange\r\n", "p..", GrepSearchOption.Multiline | GrepSearchOption.SingleLine, 0, 3, 6, 3)]
+        [InlineData("plum apple\norange\n", "l.", GrepSearchOption.None, 1, 2, 8, 2)]
+        [InlineData("plum apple\r\norange\r\n", "l.", GrepSearchOption.None, 1, 2, 8, 2)]
+        [InlineData("plum apple\norange\n", "l.", GrepSearchOption.Multiline, 1, 2, 8, 2)]
+        [InlineData("plum apple\r\norange\r\n", "l.", GrepSearchOption.Multiline, 1, 2, 8, 2)]
+        public void TestRegexPatternEndingInDot(string content, string pattern, GrepSearchOption regexOption, int start1, int len1, int start2, int len2)
         {
             string path = Path.Combine(destinationFolder, @"TestNewlines");
             if (Directory.Exists(path))
@@ -1256,35 +1311,129 @@ namespace Tests
             Directory.CreateDirectory(path);
             File.WriteAllText(Path.Combine(path, @"test.txt"), content);
 
-            GrepCore core = new GrepCore();
+            GrepCore core = new();
+            var results = core.Search(Directory.GetFiles(path, "*.txt"), SearchType.Regex, pattern, regexOption, -1);
+            Assert.Single(results);
+            Assert.Equal(2, results[0].Matches.Count);
+            Assert.Equal(start1, results[0].Matches[0].StartLocation);
+            Assert.Equal(len1, results[0].Matches[0].Length);
+            Assert.Equal(start2, results[0].Matches[1].StartLocation);
+            Assert.Equal(len2, results[0].Matches[1].Length);
+        }
+
+        [Theory]
+        [InlineData("plum apple\norange\n", "l.", GrepSearchOption.Multiline | GrepSearchOption.SingleLine, 2, 1, 2, "lu", 8, 2, "le")]
+        [InlineData("plum apple\r\norange\r\n", "l.", GrepSearchOption.Multiline | GrepSearchOption.SingleLine, 2, 1, 2, "lu", 8, 2, "le")]
+        [InlineData("plum apple\norange\n", "l..", GrepSearchOption.Multiline | GrepSearchOption.SingleLine, 2, 1, 3, "lum", 8, 3, "le\n")]
+        [InlineData("plum apple\r\norange\r\n", "l..", GrepSearchOption.Multiline | GrepSearchOption.SingleLine, 2, 1, 3, "lum", 8, 4, "le\r\n")]
+        [InlineData("plum apple\norange\n", "l...", GrepSearchOption.Multiline | GrepSearchOption.SingleLine, 2, 1, 4, "lum ", 8, 4, "le\no")]
+        [InlineData("plum apple\r\norange\r\n", "l...", GrepSearchOption.Multiline | GrepSearchOption.SingleLine, 2, 1, 4, "lum ", 8, 5, "le\r\no")]
+        [InlineData("plum apple\norange\n", "l.", GrepSearchOption.SingleLine, 2, 1, 2, "lu", 8, 2, "le")]
+        [InlineData("plum apple\r\norange\r\n", "l.", GrepSearchOption.SingleLine, 2, 1, 2, "lu", 8, 2, "le")]
+        [InlineData("plum apple\norange\n", "l..", GrepSearchOption.SingleLine, 2, 1, 3, "lum", 8, 3, "le\n")]
+        [InlineData("plum apple\r\norange\r\n", "l..", GrepSearchOption.SingleLine, 2, 1, 3, "lum", 8, 4, "le\r\n")]
+        [InlineData("plum apple\norange\n", "l...", GrepSearchOption.SingleLine, 1, 1, 4, "lum ", 0, 0, null)]
+        [InlineData("plum apple\r\norange\r\n", "l...", GrepSearchOption.SingleLine, 1, 1, 4, "lum ", 0, 0, null)]
+        public void TestRegexPatternSinglelineEndingInDot(string content, string pattern, GrepSearchOption regexOption, int matches, int start1, int len1, string text1, int start2, int len2, string text2)
+        {
+            string path = Path.Combine(destinationFolder, @"TestNewlines");
+            if (Directory.Exists(path))
+                Utils.DeleteFolder(path);
+            Directory.CreateDirectory(path);
+            File.WriteAllText(Path.Combine(path, @"test.txt"), content);
+
+            GrepCore core = new();
+            var results = core.Search(Directory.GetFiles(path, "*.txt"), SearchType.Regex, pattern, regexOption, -1);
+            Assert.Single(results);
+            Assert.Equal(matches, results[0].Matches.Count);
+            Assert.Equal(start1, results[0].Matches[0].StartLocation);
+            Assert.Equal(len1, results[0].Matches[0].Length);
+            Assert.Equal(text1, content.Substring(results[0].Matches[0].StartLocation, results[0].Matches[0].Length));
+            if (matches > 1)
+            {
+                Assert.Equal(start2, results[0].Matches[1].StartLocation);
+                Assert.Equal(len2, results[0].Matches[1].Length);
+                Assert.Equal(text2, content.Substring(results[0].Matches[1].StartLocation, results[0].Matches[1].Length));
+            }
+        }
+
+        [Theory]
+        [InlineData("abcd", "a.*", 0, 4)]
+        [InlineData("abcd", "a.*$", 0, 4)]
+        [InlineData("abcd\rline2\rline3\r", "a.*", 0, 4)]
+        [InlineData("abcd\nline2\nline3\n", "a.*", 0, 4)]
+        [InlineData("abcd\r\nline2\r\nline3\r\n", "a.*", 0, 4)]
+        [InlineData("abcd\rline2\rline3\r", "a.*$", 0, 4)]
+        [InlineData("abcd\nline2\nline3\n", "a.*$", 0, 4)]
+        [InlineData("abcd\r\nline2\r\nline3\r\n", "a.*$", 0, 4)]
+        [InlineData("line1\rabcd\rline3\r", "a.*", 6, 4)]
+        [InlineData("line1\nabcd\n\nline3", "a.*", 6, 4)]
+        [InlineData("line1\r\nabcd\r\nline3\r\n", "a.*", 7, 4)]
+        [InlineData("line1\rabcd\rline3\r", "a.*$", 6, 4)]
+        [InlineData("line1\nabcd\nline3\n", "a.*$", 6, 4)]
+        [InlineData("line1\r\nabcd\r\nline3\r\n", "a.*$", 7, 4)]
+        [InlineData("line1\rline2\rabcd\r", "a.*", 12, 4)]
+        [InlineData("line1\nline2\nabcd\n", "a.*", 12, 4)]
+        [InlineData("line1\r\nline2\r\nabcd\r\n", "a.*", 14, 4)]
+        [InlineData("line1\rline2\rabcd\r", "a.*$", 12, 4)]
+        [InlineData("line1\nline2\nabcd\n", "a.*$", 12, 4)]
+        [InlineData("line1\r\nline2\r\nabcd\r\n", "a.*$", 14, 4)]
+        [InlineData("line1\rline2\rabcd", "a.*", 12, 4)]
+        [InlineData("line1\nline2\nabcd", "a.*", 12, 4)]
+        [InlineData("line1\r\nline2\r\nabcd", "a.*", 14, 4)]
+        [InlineData("line1\rline2\rabcd", "a.*$", 12, 4)]
+        [InlineData("line1\nline2\nabcd", "a.*$", 12, 4)]
+        [InlineData("line1\r\nline2\r\nabcd", "a.*$", 14, 4)]
+        [InlineData("line1\r\nline2\r\nline3\r\nabcd", "a.*$", 21, 4)]
+        [InlineData("line1\r\nline2\r\nline3\r\nline4\r\nabcd", "a.*$", 28, 4)]
+        [InlineData("line1\r\nline2\nline3\r\nline4\r\nabcd", "a.*$", 27, 4)] //mixed newlines
+        [InlineData("line1\r\nline2\r\nline3\r\n\r\nabcd\r\n", "a.*$", 23, 4)] // empty line
+        [InlineData("line1\r\nline2\r\nline3\r\n\r\n\r\nabcd\r\n", "a.*$", 25, 4)] // empty line
+        [InlineData("line1\r\nline2\r\nline3\r\n\n\r\nabcd\r\n", "a.*$", 24, 4)] // mixed empty line
+        public void TestRegexShouldNotReturnNewlineChar(string content, string pattern, int start, int length)
+        {
+            string path = Path.Combine(destinationFolder, @"TestNewlines");
+            if (Directory.Exists(path))
+                Utils.DeleteFolder(path);
+            Directory.CreateDirectory(path);
+            File.WriteAllText(Path.Combine(path, @"test.txt"), content);
+
+            GrepCore core = new();
             var results = core.Search(Directory.GetFiles(path, "*.txt"), SearchType.Regex, pattern, GrepSearchOption.None, -1);
             Assert.Single(results);
             Assert.Single(results[0].Matches);
-            Assert.Equal(count, results[0].Matches[0].Length);
+            Assert.Equal(start, results[0].Matches[0].StartLocation);
+            Assert.Equal(length, results[0].Matches[0].Length);
         }
 
         [Theory]
-        [InlineData("abcd", "a.*", 4)]
-        [InlineData("abcd", "a.*$", 4)]
-        [InlineData("abcd\rline2\rline3\r", "a.*", 5)]
-        [InlineData("abcd\nline2\nline3\n", "a.*", 5)]
-        [InlineData("abcd\r\nline2\r\nline3\r\n", "a.*", 6)]
-        [InlineData("abcd\rline2\rline3\r", "a.*$", 5)]
-        [InlineData("abcd\nline2\nline3\n", "a.*$", 5)]
-        [InlineData("abcd\r\nline2\r\nline3\r\n", "a.*$", 6)]
-        [InlineData("line1\rline2\rabcd\r", "a.*", 5)]
-        [InlineData("line1\nline2\nabcd\n", "a.*", 5)]
-        [InlineData("line1\r\nline2\r\nabcd\r\n", "a.*", 6)]
-        [InlineData("line1\rline2\rabcd\r", "a.*$", 5)]
-        [InlineData("line1\nline2\nabcd\n", "a.*$", 5)]
-        [InlineData("line1\r\nline2\r\nabcd\r\n", "a.*$", 6)]
-        [InlineData("line1\rline2\rabcd", "a.*", 4)]
-        [InlineData("line1\nline2\nabcd", "a.*", 4)]
-        [InlineData("line1\r\nline2\r\nabcd", "a.*", 4)]
-        [InlineData("line1\rline2\rabcd", "a.*$", 4)]
-        [InlineData("line1\nline2\nabcd", "a.*$", 4)]
-        [InlineData("line1\r\nline2\r\nabcd", "a.*$", 4)]
-        public void TestRegexSinglelineShouldReturnNewlineChar(string content, string pattern, int count)
+        [InlineData("abcd", "a.*", 0, 4)]
+        [InlineData("abcd", "a.*$", 0, 4)]
+        [InlineData("abcd\rline2\rline3\r", "a.*", 0, 5)]
+        [InlineData("abcd\nline2\nline3\n", "a.*", 0, 5)]
+        [InlineData("abcd\r\nline2\r\nline3\r\n", "a.*", 0, 6)]
+        [InlineData("abcd\rline2\rline3\r", "a.*$", 0, 5)]
+        [InlineData("abcd\nline2\nline3\n", "a.*$", 0, 5)]
+        [InlineData("abcd\r\nline2\r\nline3\r\n", "a.*$", 0, 6)]
+        [InlineData("line1\rline2\rabcd\r", "a.*", 12, 5)]
+        [InlineData("line1\nline2\nabcd\n", "a.*", 12, 5)]
+        [InlineData("line1\r\nline2\r\nabcd\r\n", "a.*", 14, 6)]
+        [InlineData("line1\rline2\rabcd\r", "a.*$", 12, 5)]
+        [InlineData("line1\nline2\nabcd\n", "a.*$", 12, 5)]
+        [InlineData("line1\r\nline2\r\nabcd\r\n", "a.*$", 14, 6)]
+        [InlineData("line1\rline2\rabcd", "a.*", 12, 4)]
+        [InlineData("line1\nline2\nabcd", "a.*", 12, 4)]
+        [InlineData("line1\r\nline2\r\nabcd", "a.*", 14, 4)]
+        [InlineData("line1\rline2\rabcd", "a.*$", 12, 4)]
+        [InlineData("line1\nline2\nabcd", "a.*$", 12, 4)]
+        [InlineData("line1\r\nline2\r\nabcd", "a.*$", 14, 4)]
+        [InlineData("abcd\r\nline2\nline3\r\n", "a.*", 0, 6)]  // mixed newlines
+        [InlineData("abcd\nline2\r\nline3\r\n", "a.*", 0, 5)]  // mixed newlines
+        [InlineData("line1\nline2\r\nabcd\r\n", "a.*", 13, 6)] // mixed newlines
+        [InlineData("line1\nline2\r\nabcd", "a.*", 13, 4)]     // mixed newlines
+        [InlineData("line1\rline2\r\nabcd\r\n", "a.*", 13, 6)] // mixed newlines
+        [InlineData("line1\rline2\r\nabcd", "a.*", 13, 4)]     // mixed newlines
+        public void TestRegexSinglelineShouldReturnNewlineChar(string content, string pattern, int start, int length)
         {
             string path = Path.Combine(destinationFolder, @"TestNewlines");
             if (Directory.Exists(path))
@@ -1292,37 +1441,41 @@ namespace Tests
             Directory.CreateDirectory(path);
             File.WriteAllText(Path.Combine(path, @"test.txt"), content);
 
-            GrepCore core = new GrepCore();
+            GrepCore core = new();
             var results = core.Search(Directory.GetFiles(path, "*.txt"), SearchType.Regex, pattern, GrepSearchOption.SingleLine, -1);
             Assert.Single(results);
             Assert.Single(results[0].Matches);
-            Assert.Equal(count, results[0].Matches[0].Length);
+            Assert.Equal(start, results[0].Matches[0].StartLocation);
+            Assert.Equal(length, results[0].Matches[0].Length);
         }
 
         [Theory]
-        [InlineData("abcd", "a.*", 4)]
-        [InlineData("abcd", "a.*$", 4)]
-        [InlineData("abcd\rline2\rline3\r", "a.*", 4)]
-        [InlineData("abcd\nline2\nline3\n", "a.*", 4)]
-        [InlineData("abcd\r\nline2\r\nline3\r\n", "a.*", 4)]
-        [InlineData("abcd\rline2\rline3\r", "a.*$", 4)]
-        [InlineData("abcd\nline2\nline3\n", "a.*$", 4)]
-        [InlineData("abcd\r\nline2\r\nline3\r\n", "a.*$", 4)]
-        [InlineData("line1\rline2\rabcd\r", "a.*", 4)]
-        [InlineData("line1\nline2\nabcd\n", "a.*", 4)]
-        [InlineData("line1\r\nline2\r\nabcd\r\n", "a.*", 4)]
-        [InlineData("line1\rline2\rabcd\r", "a.*$", 4)]
-        [InlineData("line1\nline2\nabcd\n", "a.*$", 4)]
-        [InlineData("line1\r\nline2\r\nabcd\r\n", "a.*$", 4)]
-        [InlineData("line1\rline2\rabcd", "a.*", 4)]
-        [InlineData("line1\nline2\nabcd", "a.*", 4)]
-        [InlineData("line1\r\nline2\r\nabcd", "a.*", 4)]
-        [InlineData("line1\rline2\rabcd", "a.*$", 4)]
-        [InlineData("line1\nline2\nabcd", "a.*$", 4)]
-        [InlineData("line1\r\nline2\r\nabcd", "a.*$", 4)]
-        [InlineData("abcd\r\nline2\nline3\r\n", "a.*", 4)]  // mixed newlines
-        [InlineData("abcd\nline2\r\nline3\r\n", "a.*", 4)]  // mixed newlines
-        public void TestRegexMultilineShouldNotReturnNewlineChar(string content, string pattern, int count)
+        [InlineData("abcd", "a.*", 0, 4)]
+        [InlineData("abcd", "a.*$", 0, 4)]
+        [InlineData("abcd\rline2\rline3\r", "a.*", 0, 4)]
+        [InlineData("abcd\nline2\nline3\n", "a.*", 0, 4)]
+        [InlineData("abcd\r\nline2\r\nline3\r\n", "a.*", 0, 4)]
+        [InlineData("abcd\rline2\rline3\r", "a.*$", 0, 4)]
+        [InlineData("abcd\nline2\nline3\n", "a.*$", 0, 4)]
+        [InlineData("abcd\r\nline2\r\nline3\r\n", "a.*$", 0, 4)]
+        [InlineData("line1\rline2\rabcd\r", "a.*", 12, 4)]
+        [InlineData("line1\nline2\nabcd\n", "a.*", 12, 4)]
+        [InlineData("line1\r\nline2\r\nabcd\r\n", "a.*", 14, 4)]
+        [InlineData("line1\rline2\rabcd\r", "a.*$", 12, 4)]
+        [InlineData("line1\nline2\nabcd\n", "a.*$", 12, 4)]
+        [InlineData("line1\r\nline2\r\nabcd\r\n", "a.*$", 14, 4)]
+        [InlineData("line1\rline2\rabcd", "a.*", 12, 4)]
+        [InlineData("line1\nline2\nabcd", "a.*", 12, 4)]
+        [InlineData("line1\r\nline2\r\nabcd", "a.*", 14, 4)]
+        [InlineData("line1\rline2\rabcd", "a.*$", 12, 4)]
+        [InlineData("line1\nline2\nabcd", "a.*$", 12, 4)]
+        [InlineData("line1\r\nline2\r\nabcd", "a.*$", 14, 4)]
+        [InlineData("abcd\r\nline2\nline3\r\n", "a.*", 0, 4)]  // mixed newlines
+        [InlineData("abcd\nline2\r\nline3\r\n", "a.*", 0, 4)]  // mixed newlines
+        [InlineData("line1\nline2\r\nabcd\r\n", "a.*", 13, 4)] // mixed newlines
+        [InlineData("abcd\rline2\r\nline3\r\n", "a.*", 0, 4)]  // mixed newlines
+        [InlineData("line1\rline2\r\nabcd\r\n", "a.*", 13, 4)] // mixed newlines
+        public void TestRegexMultilineShouldNotReturnNewlineChar(string content, string pattern, int start, int length)
         {
             string path = Path.Combine(destinationFolder, @"TestNewlines");
             if (Directory.Exists(path))
@@ -1330,35 +1483,36 @@ namespace Tests
             Directory.CreateDirectory(path);
             File.WriteAllText(Path.Combine(path, @"test.txt"), content);
 
-            GrepCore core = new GrepCore();
+            GrepCore core = new();
             var results = core.Search(Directory.GetFiles(path, "*.txt"), SearchType.Regex, pattern, GrepSearchOption.Multiline, -1);
             Assert.Single(results);
             Assert.Single(results[0].Matches);
-            Assert.Equal(count, results[0].Matches[0].Length);
+            Assert.Equal(start, results[0].Matches[0].StartLocation);
+            Assert.Equal(length, results[0].Matches[0].Length);
         }
 
         [Theory]
-        [InlineData("abcd", "a.*", 4)]
-        [InlineData("abcd", "a.*$", 4)]
-        [InlineData("abcd\rline2\rline3\r", "a.*", 17)]
-        [InlineData("abcd\nline2\nline3\n", "a.*", 17)]
-        [InlineData("abcd\r\nline2\r\nline3\r\n", "a.*", 20)]
-        [InlineData("abcd\rline2\rline3\r", "a.*$", 17)]
-        [InlineData("abcd\nline2\nline3\n", "a.*$", 17)]
-        [InlineData("abcd\r\nline2\r\nline3\r\n", "a.*$", 20)]
-        [InlineData("line1\rline2\rabcd\r", "a.*", 5)]
-        [InlineData("line1\nline2\nabcd\n", "a.*", 5)]
-        [InlineData("line1\r\nline2\r\nabcd\r\n", "a.*", 6)]
-        [InlineData("line1\rline2\rabcd\r", "a.*$", 5)]
-        [InlineData("line1\nline2\nabcd\n", "a.*$", 5)]
-        [InlineData("line1\r\nline2\r\nabcd\r\n", "a.*$", 6)]
-        [InlineData("line1\rline2\rabcd", "a.*", 4)]
-        [InlineData("line1\nline2\nabcd", "a.*", 4)]
-        [InlineData("line1\r\nline2\r\nabcd", "a.*", 4)]
-        [InlineData("line1\rline2\rabcd", "a.*$", 4)]
-        [InlineData("line1\nline2\nabcd", "a.*$", 4)]
-        [InlineData("line1\r\nline2\r\nabcd", "a.*$", 4)]
-        public void TestRegexMultilineAndSinglelineShouldReturnNewlineChars(string content, string pattern, int count)
+        [InlineData("abcd", "a.*", 0, 4)]
+        [InlineData("abcd", "a.*$", 0, 4)]
+        [InlineData("abcd\rline2\rline3\r", "a.*", 0, 17)]
+        [InlineData("abcd\nline2\nline3\n", "a.*", 0, 17)]
+        [InlineData("abcd\r\nline2\r\nline3\r\n", "a.*", 0, 20)]
+        [InlineData("abcd\rline2\rline3\r", "a.*$", 0, 17)]
+        [InlineData("abcd\nline2\nline3\n", "a.*$", 0, 17)]
+        [InlineData("abcd\r\nline2\r\nline3\r\n", "a.*$", 0, 20)]
+        [InlineData("line1\rline2\rabcd\r", "a.*", 12, 5)]
+        [InlineData("line1\nline2\nabcd\n", "a.*", 12, 5)]
+        [InlineData("line1\r\nline2\r\nabcd\r\n", "a.*", 14, 6)]
+        [InlineData("line1\rline2\rabcd\r", "a.*$", 12, 5)]
+        [InlineData("line1\nline2\nabcd\n", "a.*$", 12, 5)]
+        [InlineData("line1\r\nline2\r\nabcd\r\n", "a.*$", 14, 6)]
+        [InlineData("line1\rline2\rabcd", "a.*", 12, 4)]
+        [InlineData("line1\nline2\nabcd", "a.*", 12, 4)]
+        [InlineData("line1\r\nline2\r\nabcd", "a.*", 14, 4)]
+        [InlineData("line1\rline2\rabcd", "a.*$", 12, 4)]
+        [InlineData("line1\nline2\nabcd", "a.*$", 12, 4)]
+        [InlineData("line1\r\nline2\r\nabcd", "a.*$", 14, 4)]
+        public void TestRegexMultilineAndSinglelineShouldReturnNewlineChars(string content, string pattern, int start, int length)
         {
             string path = Path.Combine(destinationFolder, @"TestNewlines");
             if (Directory.Exists(path))
@@ -1366,11 +1520,12 @@ namespace Tests
             Directory.CreateDirectory(path);
             File.WriteAllText(Path.Combine(path, @"test.txt"), content);
 
-            GrepCore core = new GrepCore();
+            GrepCore core = new();
             var results = core.Search(Directory.GetFiles(path, "*.txt"), SearchType.Regex, pattern, GrepSearchOption.Multiline | GrepSearchOption.SingleLine, -1);
             Assert.Single(results);
             Assert.Single(results[0].Matches);
-            Assert.Equal(count, results[0].Matches[0].Length);
+            Assert.Equal(start, results[0].Matches[0].StartLocation);
+            Assert.Equal(length, results[0].Matches[0].Length);
         }
 
         [Theory]
@@ -1393,7 +1548,7 @@ namespace Tests
             File.WriteAllText(file, content);
             var files = Directory.GetFiles(path, "*.txt");
 
-            GrepCore core = new GrepCore();
+            GrepCore core = new();
             var results = core.Search(files, SearchType.Regex, pattern, GrepSearchOption.SingleLine, -1);
 
             Assert.Single(results);
@@ -1401,9 +1556,9 @@ namespace Tests
             Assert.Equal(matchLength, results[0].Matches[0].Length);
 
             // mark for replace
-            List<ReplaceDef> replaceFiles = new List<ReplaceDef>();
+            List<ReplaceDef> replaceFiles = new();
             results[0].Matches[0].ReplaceMatch = true;
-            replaceFiles.Add(new ReplaceDef(file, results[0].Matches));
+            replaceFiles.Add(new(file, results[0].Matches));
 
             core.Replace(replaceFiles, SearchType.Regex, pattern, "join", GrepSearchOption.SingleLine, -1);
             string fileContent = File.ReadAllText(file, Encoding.UTF8);
@@ -1424,7 +1579,7 @@ namespace Tests
             File.WriteAllText(file, content);
             var files = Directory.GetFiles(path, "*.txt");
 
-            GrepCore core = new GrepCore();
+            GrepCore core = new();
             var results = core.Search(files, SearchType.Regex, pattern, GrepSearchOption.None, -1);
 
             Assert.Single(results);
@@ -1432,14 +1587,359 @@ namespace Tests
             Assert.Equal(matchLength, results[0].Matches[0].Length);
 
             // mark for replace
-            List<ReplaceDef> replaceFiles = new List<ReplaceDef>();
+            List<ReplaceDef> replaceFiles = new();
             results[0].Matches[0].ReplaceMatch = true;
-            replaceFiles.Add(new ReplaceDef(file, results[0].Matches));
+            replaceFiles.Add(new(file, results[0].Matches));
 
             core.Replace(replaceFiles, SearchType.Regex, pattern, replace, GrepSearchOption.SingleLine, -1);
             string fileContent = File.ReadAllText(file, Encoding.UTF8);
 
             Assert.Equal(expected, fileContent);
         }
+
+        [Fact]
+        public void TestArchiveFilters()
+        {
+            // this test is repeated from the same in UtilsTest because
+            // ArchiveEngine and ArchiveDirectory each have code to enumerate 
+            // and filter files in archives
+
+            string testCase19 = Path.Combine(sourceFolder, @"TestCase19");
+            string destFolder = Path.Combine(destinationFolder, @"TestCase19");
+            DirectoryInfo di = new(destFolder);
+            if (!di.Exists)
+            {
+                di.Create();
+                DirectoryEx.Copy(testCase19, destFolder);
+            }
+
+            GrepCore core = new()
+            {
+                // all files
+                FileFilter = new(destFolder, "*.*", string.Empty, false, false, false, true, -1, true,
+                true, true, false, 0, 0, FileDateFilter.None, null, null)
+            };
+            var results = core.Search(Directory.GetFiles(destFolder, "*.*"), SearchType.Regex, @"\w+",
+                GrepSearchOption.None, -1);
+            Assert.Equal(18, results.Count);
+
+            // all .ttt files
+            core.FileFilter = new(destFolder, "*.ttt", string.Empty, false, false, false, true, -1, true,
+                true, true, false, 0, 0, FileDateFilter.None, null, null);
+            results = core.Search(Directory.GetFiles(destFolder, "*.*"), SearchType.Regex, @"\w+",
+                GrepSearchOption.None, -1);
+            Assert.Equal(13, results.Count);
+
+            // all but .ttt files
+            core.FileFilter = new(destFolder, "*.*", "*.ttt", false, false, false, true, -1, true,
+                true, true, false, 0, 0, FileDateFilter.None, null, null);
+            results = core.Search(Directory.GetFiles(destFolder, "*.*"), SearchType.Regex, @"\w+",
+                GrepSearchOption.None, -1);
+            Assert.Equal(5, results.Count);
+
+            // all .md files
+            core.FileFilter = new(destFolder, "*.md", string.Empty, false, false, false, true, -1, true,
+                true, true, false, 0, 0, FileDateFilter.None, null, null);
+            results = core.Search(Directory.GetFiles(destFolder, "*.*"), SearchType.Regex, @"\w+",
+                GrepSearchOption.None, -1);
+            Assert.Single(results);
+
+            // exclude below depth2
+            core.FileFilter = new(destFolder, "*.ttt", @"depth2\*", false, false, false, true, -1, true,
+                true, true, false, 0, 0, FileDateFilter.None, null, null);
+            results = core.Search(Directory.GetFiles(destFolder, "*.*"), SearchType.Regex, @"\w+",
+                GrepSearchOption.None, -1);
+            Assert.Equal(8, results.Count);
+
+            // regex filter
+            core.FileFilter = new(destFolder, @"\bl.*", string.Empty, true, false, false, true, -1, true,
+                true, true, false, 0, 0, FileDateFilter.None, null, null);
+            results = core.Search(Directory.GetFiles(destFolder, "*.*"), SearchType.Regex, @"\w+",
+                GrepSearchOption.None, -1);
+            Assert.Equal(2, results.Count);
+
+            // regex exclude filter
+            core.FileFilter = new(destFolder, ".*", @"\b[abl]", true, false, false, true, -1, true,
+                true, true, false, 0, 0, FileDateFilter.None, null, null);
+            results = core.Search(Directory.GetFiles(destFolder, "*.*"), SearchType.Regex, @"\w+",
+                GrepSearchOption.None, -1);
+            Assert.Equal(13, results.Count);
+
+            // exclude hidden
+            core.FileFilter = new(destFolder, "*.ttt", string.Empty, false, false, false, true, -1, false,
+                true, true, false, 0, 0, FileDateFilter.None, null, null);
+            results = core.Search(Directory.GetFiles(destFolder, "*.*"), SearchType.Regex, @"\w+",
+                GrepSearchOption.None, -1);
+            Assert.Equal(10, results.Count);
+
+            // exclude binary
+            core.FileFilter = new(destFolder, "*.*", string.Empty, false, false, false, true, -1, true,
+                false, true, false, 0, 0, FileDateFilter.None, null, null);
+            results = core.Search(Directory.GetFiles(destFolder, "*.*"), SearchType.Regex, @"\w+",
+                GrepSearchOption.None, -1);
+            Assert.Equal(17, results.Count);
+
+            // size filter
+            core.FileFilter = new(destFolder, "*.ttt", string.Empty, false, false, false, true, -1, true,
+                true, true, false, 0, 10, FileDateFilter.None, null, null);
+            results = core.Search(Directory.GetFiles(destFolder, "*.*"), SearchType.Regex, @"\w+",
+                GrepSearchOption.None, -1);
+            Assert.Equal(12, results.Count);
+
+            // date filter
+            core.FileFilter = new(destFolder, "*.ttt", string.Empty, false, false, false, true, -1, true,
+                true, true, false, 0, 0, FileDateFilter.Modified, null, new DateTime(2019, 1, 1));
+            results = core.Search(Directory.GetFiles(destFolder, "*.*"), SearchType.Regex, @"\w+",
+                GrepSearchOption.None, -1);
+            Assert.Equal(4, results.Count);
+
+            // shebang filter
+            core.FileFilter = new(destFolder, "#!*python", string.Empty, false, false, false, true, -1, true,
+                true, true, false, 0, 0, FileDateFilter.None, null, null);
+            results = core.Search(Directory.GetFiles(destFolder, "*.*"), SearchType.Regex, @"\w+",
+                GrepSearchOption.None, -1);
+            Assert.Equal(2, results.Count);
+        }
+
+        [Theory]
+        [InlineData("a1111 b2222\r\nc3333 d4444", true)]
+        [InlineData(" a1111 b2222\r\n c3333 d4444", true)]
+        [InlineData("aa1111 b2222\r\ncc3333 d4444", true)]
+        [InlineData("a1111 b2222 \r\nc3333 d4444 ", true)]
+        [InlineData("zz a1111 b2222\r\nzz c3333 d4444", true)]
+        [InlineData("a1111 z b2222\r\nc3333 z d4444", true)]
+        [InlineData("zz a1111 zz b2222\r\nzz c3333 zz d4444", true)]
+        [InlineData("a1111 b2222\r\nc3333 d4444", false)]
+        [InlineData(" a1111 b2222\r\n c3333 d4444", false)]
+        [InlineData("aa1111 b2222\r\ncc3333 d4444", false)]
+        [InlineData("a1111 b2222 \r\nc3333 d4444 ", false)]
+        [InlineData("zz a1111 b2222\r\nzz c3333 d4444", false)]
+        [InlineData("a1111 z b2222\r\nc3333 z d4444", false)]
+        [InlineData("zz a1111 zz b2222\r\nzz c3333 zz d4444", false)]
+        public void TestCaptureGroupHighlightMutlipleMatches1(string content, bool verboseMatchCount)
+        {
+            string pattern = @"\w(\d+)";
+            string[] textLines = content.Split(new char[] { '\r', '\n' }, StringSplitOptions.RemoveEmptyEntries);
+
+            string path = Path.Combine(destinationFolder, @"TestCaptureGroupHighlight");
+            if (Directory.Exists(path))
+                Utils.DeleteFolder(path);
+            Directory.CreateDirectory(path);
+
+            string file = Path.Combine(path, @"test.txt");
+            File.WriteAllText(file, content);
+            var files = Directory.GetFiles(path, "*.txt");
+
+            GrepCore core = new()
+            {
+                SearchParams = new(false, 0, 0, 0, verboseMatchCount, false)
+            };
+            var results = core.Search(files, SearchType.Regex, pattern, GrepSearchOption.None, -1);
+
+            Assert.Single(results);
+            Assert.Equal(4, results[0].Matches.Count);
+
+            List<GrepLine> lines = new();
+            using (StringReader reader = new(content))
+            {
+                lines = Utils.GetLinesEx(reader, results[0].Matches, 0, 0);
+            }
+
+            Assert.Equal(2, lines.Count);
+
+            GrepLine line = lines[0];
+            Assert.Equal(1, line.LineNumber);
+            Assert.Equal(textLines[0], line.LineText);
+            Assert.Equal(2, line.Matches.Count);
+
+            GrepMatch match = line.Matches[0];
+            Assert.Equal("a1111", line.LineText.Substring(match.StartLocation, match.Length));
+            Assert.Single(match.Groups);
+            GrepCaptureGroup group = match.Groups[0];
+            Assert.Equal("1111", line.LineText.Substring(group.StartLocation, group.Length));
+
+            match = line.Matches[1];
+            Assert.Equal("b2222", line.LineText.Substring(match.StartLocation, match.Length));
+            Assert.Single(match.Groups);
+            group = match.Groups[0];
+            Assert.Equal("2222", line.LineText.Substring(group.StartLocation, group.Length));
+
+            line = lines[1];
+            Assert.Equal(2, line.LineNumber);
+            Assert.Equal(textLines[1], line.LineText);
+            Assert.Equal(2, line.Matches.Count);
+
+            match = line.Matches[0];
+            Assert.Equal("c3333", line.LineText.Substring(match.StartLocation, match.Length));
+            Assert.Single(match.Groups);
+            group = match.Groups[0];
+            Assert.Equal("3333", line.LineText.Substring(group.StartLocation, group.Length));
+
+            match = line.Matches[1];
+            Assert.Equal("d4444", line.LineText.Substring(match.StartLocation, match.Length));
+            Assert.Single(match.Groups);
+            group = match.Groups[0];
+            Assert.Equal("4444", line.LineText.Substring(group.StartLocation, group.Length));
+        }
+
+        [Theory]
+        [InlineData("a1111 b2222\r\nc3333 d4444", true)]
+        [InlineData(" a1111 b2222\r\n c3333 d4444", true)]
+        [InlineData("aa1111 b2222\r\ncc3333 d4444", true)]
+        [InlineData("a1111 b2222 \r\nc3333 d4444 ", true)]
+        [InlineData("zz a1111 b2222\r\nzz c3333 d4444", true)]
+        [InlineData("a1111 z b2222\r\nc3333 z d4444", true)]
+        [InlineData("zz a1111 zz b2222\r\nzz c3333 zz d4444", true)]
+        [InlineData("a1111 b2222\r\nc3333 d4444", false)]
+        [InlineData(" a1111 b2222\r\n c3333 d4444", false)]
+        [InlineData("aa1111 b2222\r\ncc3333 d4444", false)]
+        [InlineData("a1111 b2222 \r\nc3333 d4444 ", false)]
+        [InlineData("zz a1111 b2222\r\nzz c3333 d4444", false)]
+        [InlineData("a1111 z b2222\r\nc3333 z d4444", false)]
+        [InlineData("zz a1111 zz b2222\r\nzz c3333 zz d4444", false)]
+        public void TestCaptureGroupHighlightMutlipleMatches2(string content, bool verboseMatchCount)
+        {
+            string pattern = @"\w(\d+)";
+            string[] textLines = content.Split(new char[] { '\r', '\n' }, StringSplitOptions.RemoveEmptyEntries);
+
+            string path = Path.Combine(destinationFolder, @"TestCaptureGroupHighlight");
+            if (Directory.Exists(path))
+                Utils.DeleteFolder(path);
+            Directory.CreateDirectory(path);
+
+            string file = Path.Combine(path, @"test.txt");
+            File.WriteAllText(file, content);
+            var files = Directory.GetFiles(path, "*.txt");
+
+            GrepCore core = new()
+            {
+                SearchParams = new(false, 0, 0, 0, verboseMatchCount, false)
+            };
+            var results = core.Search(files, SearchType.Regex, pattern, GrepSearchOption.Multiline | GrepSearchOption.SingleLine, -1);
+
+            Assert.Single(results);
+            Assert.Equal(4, results[0].Matches.Count);
+
+            List<GrepLine> lines = new();
+            using (StringReader reader = new(content))
+            {
+                lines = Utils.GetLinesEx(reader, results[0].Matches, 0, 0);
+            }
+
+            Assert.Equal(2, lines.Count);
+
+            GrepLine line = lines[0];
+            Assert.Equal(1, line.LineNumber);
+            Assert.Equal(textLines[0], line.LineText);
+            Assert.Equal(2, line.Matches.Count);
+
+            GrepMatch match = line.Matches[0];
+            Assert.Equal("a1111", line.LineText.Substring(match.StartLocation, match.Length));
+            Assert.Single(match.Groups);
+            GrepCaptureGroup group = match.Groups[0];
+            Assert.Equal("1111", line.LineText.Substring(group.StartLocation, group.Length));
+
+            match = line.Matches[1];
+            Assert.Equal("b2222", line.LineText.Substring(match.StartLocation, match.Length));
+            Assert.Single(match.Groups);
+            group = match.Groups[0];
+            Assert.Equal("2222", line.LineText.Substring(group.StartLocation, group.Length));
+
+            line = lines[1];
+            Assert.Equal(2, line.LineNumber);
+            Assert.Equal(textLines[1], line.LineText);
+            Assert.Equal(2, line.Matches.Count);
+
+            match = line.Matches[0];
+            Assert.Equal("c3333", line.LineText.Substring(match.StartLocation, match.Length));
+            Assert.Single(match.Groups);
+            group = match.Groups[0];
+            Assert.Equal("3333", line.LineText.Substring(group.StartLocation, group.Length));
+
+            match = line.Matches[1];
+            Assert.Equal("d4444", line.LineText.Substring(match.StartLocation, match.Length));
+            Assert.Single(match.Groups);
+            group = match.Groups[0];
+            Assert.Equal("4444", line.LineText.Substring(group.StartLocation, group.Length));
+        }
+
+        [Theory]
+        [InlineData("a1111 b2222\r\nc3333 d4444", true)]
+        [InlineData(" a1111 b2222\r\n c3333 d4444", true)]
+        [InlineData("aa1111 b2222\r\ncc3333 d4444", true)]
+        [InlineData("a1111 b2222 \r\nc3333 d4444 ", true)]
+        [InlineData("zz a1111 b2222\r\nzz c3333 d4444", true)]
+        [InlineData("a1111 z b2222\r\nc3333 z d4444", true)]
+        [InlineData("zz a1111 zz b2222\r\nzz c3333 zz d4444", true)]
+        [InlineData("a1111 b2222\r\nc3333 d4444", false)]
+        [InlineData(" a1111 b2222\r\n c3333 d4444", false)]
+        [InlineData("aa1111 b2222\r\ncc3333 d4444", false)]
+        [InlineData("a1111 b2222 \r\nc3333 d4444 ", false)]
+        [InlineData("zz a1111 b2222\r\nzz c3333 d4444", false)]
+        [InlineData("a1111 z b2222\r\nc3333 z d4444", false)]
+        [InlineData("zz a1111 zz b2222\r\nzz c3333 zz d4444", false)]
+        public void TestCaptureGroupHighlightSingleMatchesMultipleGroups(string content, bool verboseMatchCount)
+        {
+            string pattern = @"a(\d+).+b(\d+).+c(\d+).+d(\d+)\s?$";
+            string[] textLines = content.Split(new char[] { '\r', '\n' }, StringSplitOptions.RemoveEmptyEntries);
+
+            string path = Path.Combine(destinationFolder, @"TestCaptureGroupHighlight");
+            if (Directory.Exists(path))
+                Utils.DeleteFolder(path);
+            Directory.CreateDirectory(path);
+
+            string file = Path.Combine(path, @"test.txt");
+            File.WriteAllText(file, content);
+            var files = Directory.GetFiles(path, "*.txt");
+
+            GrepCore core = new()
+            {
+                SearchParams = new(false, 0, 0, 0, verboseMatchCount, false)
+            };
+            var results = core.Search(files, SearchType.Regex, pattern, GrepSearchOption.Multiline | GrepSearchOption.SingleLine, -1);
+
+            Assert.Single(results);
+            Assert.Single(results[0].Matches);
+
+            List<GrepLine> lines = new();
+            using (StringReader reader = new(content))
+            {
+                lines = Utils.GetLinesEx(reader, results[0].Matches, 0, 0);
+            }
+
+            Assert.Equal(2, lines.Count);
+
+            GrepLine line = lines[0];
+            Assert.Equal(1, line.LineNumber);
+            Assert.Equal(textLines[0], line.LineText);
+            Assert.Single(line.Matches);
+
+            GrepMatch match = line.Matches[0];
+            //Assert.Equal(textLines[0], line.LineText.Substring(match.StartLocation, match.Length));
+            Assert.Equal(2, match.Groups.Count);
+            GrepCaptureGroup group = match.Groups[0];
+            Assert.Equal("1111", line.LineText.Substring(group.StartLocation, group.Length));
+            group = match.Groups[1];
+            Assert.Equal("2222", line.LineText.Substring(group.StartLocation, group.Length));
+
+            line = lines[1];
+            Assert.Equal(2, line.LineNumber);
+            Assert.Equal(textLines[1], line.LineText);
+            Assert.Single(line.Matches);
+
+            match = line.Matches[0];
+            //Assert.Equal(textLines[1], line.LineText.Substring(match.StartLocation, match.Length));
+            Assert.Equal(2, match.Groups.Count);
+            group = match.Groups[0];
+            Assert.Equal("3333", line.LineText.Substring(group.StartLocation, group.Length));
+            group = match.Groups[1];
+            Assert.Equal("4444", line.LineText.Substring(group.StartLocation, group.Length));
+        }
+
+        [GeneratedRegex("[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}")]
+        private static partial Regex GuidRegex();
+
+#pragma warning restore SYSLIB1045
+
     }
 }

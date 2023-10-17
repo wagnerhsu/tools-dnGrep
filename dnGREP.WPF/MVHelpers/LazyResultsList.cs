@@ -13,6 +13,9 @@ namespace dnGREP.WPF.MVHelpers
         private readonly GrepSearchResult result;
         private readonly FormattedGrepResult formattedResult;
 
+        public event EventHandler<PropertyChangedEventArgs>? LineNumberColumnWidthChanged;
+        public event EventHandler? LoadFinished;
+
         public bool IsLoaded { get; private set; }
         public bool IsLoading { get; private set; }
 
@@ -23,7 +26,7 @@ namespace dnGREP.WPF.MVHelpers
 
             if ((result.Matches != null && result.Matches.Count > 0) || !result.IsSuccess)
             {
-                GrepLine emptyLine = new GrepLine(-1, "", true, null);
+                GrepLine emptyLine = new(-1, "", true, null);
                 var dummyLine = new FormattedGrepLine(emptyLine, formattedResult, 30, false);
                 Add(dummyLine);
                 IsLoaded = false;
@@ -37,6 +40,32 @@ namespace dnGREP.WPF.MVHelpers
             set { lineNumberColumnWidth = value; OnPropertyChanged(nameof(LineNumberColumnWidth)); }
         }
 
+        public bool Load()
+        {
+            if (IsLoaded || IsLoading)
+                return false;
+
+            IsLoading = true;
+
+            List<GrepLine> linesWithContext;
+            if (GrepSettings.Instance.Get<bool>(GrepSettings.Key.ShowLinesInContext))
+            {
+                linesWithContext = result.GetLinesWithContext(GrepSettings.Instance.Get<int>(GrepSettings.Key.ContextLinesBefore),
+                        GrepSettings.Instance.Get<int>(GrepSettings.Key.ContextLinesAfter));
+            }
+            else
+            {
+                linesWithContext = result.GetLinesWithContext(0, 0);
+            }
+
+            FormatAndLoadLines(linesWithContext);
+
+            IsLoaded = true;
+            IsLoading = false;
+            LoadFinished?.Invoke(this, EventArgs.Empty);
+            return true;
+        }
+
         public async Task<bool> LoadAsync()
         {
             if (IsLoaded || IsLoading)
@@ -44,29 +73,41 @@ namespace dnGREP.WPF.MVHelpers
 
             IsLoading = true;
 
-            int currentLine = -1;
-
             List<GrepLine> linesWithContext = await Task.Run(() =>
             {
-                List<GrepLine> list = new List<GrepLine>();
+                List<GrepLine> list;
                 if (GrepSettings.Instance.Get<bool>(GrepSettings.Key.ShowLinesInContext))
-                    list = result.GetLinesWithContext(GrepSettings.Instance.Get<int>(GrepSettings.Key.ContextLinesBefore),
+                {
+                    list = result.GetLinesWithContext(
+                        GrepSettings.Instance.Get<int>(GrepSettings.Key.ContextLinesBefore),
                         GrepSettings.Instance.Get<int>(GrepSettings.Key.ContextLinesAfter));
+                }
                 else
+                {
                     list = result.GetLinesWithContext(0, 0);
+                }
 
                 return list;
             });
 
-            if (this.Count == 1 && this[0].GrepLine.LineNumber == -1)
+            FormatAndLoadLines(linesWithContext);
+
+            IsLoaded = true;
+            IsLoading = false;
+            LoadFinished?.Invoke(this, EventArgs.Empty);
+            return true;
+        }
+
+        private void FormatAndLoadLines(List<GrepLine> linesWithContext)
+        {
+            int currentLine = -1;
+
+            if (Count == 1 && this[0].GrepLine.LineNumber == -1)
             {
-                if (Application.Current != null)
-                    Application.Current.Dispatcher.Invoke(new Action(() =>
-                        this.Clear()
-                    ));
+                Application.Current?.Dispatcher.Invoke(new Action(Clear));
             }
 
-            List<FormattedGrepLine> tempList = new List<FormattedGrepLine>();
+            List<FormattedGrepLine> tempList = new();
             for (int i = 0; i < linesWithContext.Count; i++)
             {
                 GrepLine line = linesWithContext[i];
@@ -94,20 +135,15 @@ namespace dnGREP.WPF.MVHelpers
                 tempList.Add(new FormattedGrepLine(line, formattedResult, LineNumberColumnWidth, isSectionBreak));
             }
 
-            if (Application.Current != null)
-                Application.Current.Dispatcher.Invoke(new Action(() =>
+            Application.Current?.Dispatcher.Invoke(new(() =>
                 {
-                    foreach (var l in tempList) this.Add(l);
+                    foreach (var l in tempList)
+                    {
+                        Add(l);
+                    }
                 }
             ));
-            IsLoaded = true;
-            IsLoading = false;
-            LoadFinished?.Invoke(this, EventArgs.Empty);
-            return true;
         }
-
-        public event EventHandler<PropertyChangedEventArgs> LineNumberColumnWidthChanged;
-        public event EventHandler LoadFinished;
 
         protected void OnPropertyChanged(string name)
         {

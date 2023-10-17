@@ -2,11 +2,6 @@ using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Text;
-using Directory = Alphaleonis.Win32.Filesystem.Directory;
-using DirectoryInfo = Alphaleonis.Win32.Filesystem.DirectoryInfo;
-using File = Alphaleonis.Win32.Filesystem.File;
-using FileInfo = Alphaleonis.Win32.Filesystem.FileInfo;
-using Path = Alphaleonis.Win32.Filesystem.Path;
 
 namespace dnGREP.Common
 {
@@ -14,7 +9,34 @@ namespace dnGREP.Common
     {
         public GrepSearchResult()
         {
+            Id = Guid.NewGuid().ToString();
+
             IsSuccess = true;
+        }
+
+        public GrepSearchResult(FileData fileInfo, Encoding encoding)
+        {
+            Id = Guid.NewGuid().ToString();
+            FileInfo = fileInfo;
+
+            FileNameDisplayed = fileInfo.FullName;
+            Pattern = string.Empty;
+            Encoding = encoding;
+            IsSuccess = string.IsNullOrEmpty(fileInfo.ErrorMsg);
+
+            if (!string.IsNullOrEmpty(fileInfo.ErrorMsg))
+            {
+                searchResults = new List<GrepLine> { new GrepLine(-1, fileInfo.ErrorMsg, false, null) };
+            }
+
+            int pos = fileInfo.FullName.IndexOf(ArchiveDirectory.ArchiveSeparator, StringComparison.Ordinal);
+            if (pos > -1)
+            {
+                IsReadOnlyFileType = true;
+
+                FileNameReal = fileInfo.FullName[..pos];
+                InnerFileName = fileInfo.FullName[(pos + ArchiveDirectory.ArchiveSeparator.Length)..];
+            }
         }
 
         public GrepSearchResult(string file, string pattern, List<GrepMatch> matches, Encoding encoding)
@@ -24,46 +46,58 @@ namespace dnGREP.Common
 
         public GrepSearchResult(string file, string pattern, List<GrepMatch> matches, Encoding encoding, bool success)
         {
+            Id = Guid.NewGuid().ToString();
+
             FileNameDisplayed = file;
-            if (matches != null)
-                Matches = matches;
+            Matches = matches;
             Pattern = pattern;
             Encoding = encoding;
             IsSuccess = success;
 
-            if (file.Contains(ArchiveDirectory.ArchiveSeparator))
+            int pos = file.IndexOf(ArchiveDirectory.ArchiveSeparator, StringComparison.Ordinal);
+            if (pos > -1)
             {
-                ReadOnly = true;
-                string[] parts = file.Split(new char[] { '/' }, StringSplitOptions.RemoveEmptyEntries);
-                if (parts.Length > 0)
-                    FileNameReal = parts[0];
-                if (parts.Length > 1)
-                    InnerFileName = parts[1];
+                IsReadOnlyFileType = true;
+
+                FileNameReal = file[..pos];
+                InnerFileName = file[(pos + ArchiveDirectory.ArchiveSeparator.Length)..];
+            }
+            else
+            {
+                FileInfo = new(file);
+                if (Utils.IsBinary(file))
+                {
+                    IsReadOnlyFileType = true;
+                }
             }
         }
 
         public GrepSearchResult(string file, string pattern, string errorMessage, bool success)
         {
+            Id = Guid.NewGuid().ToString();
+
             FileNameDisplayed = file;
-            Matches = new List<GrepMatch>();
             searchResults = new List<GrepLine> { new GrepLine(-1, errorMessage, false, null) };
             Pattern = pattern;
             IsSuccess = success;
+            FileInfo = new(file);
         }
 
-        public Encoding Encoding { get; }
+        public string Id { get; }
 
-        public string EOL { get; set; }
+        public Encoding Encoding { get; } = Encoding.UTF8;
+
+        public string EOL { get; set; } = Environment.NewLine;
 
         public bool IsHexFile { get; set; }
 
-        public string FileNameDisplayed { get; set; }
+        public string FileNameDisplayed { get; set; } = string.Empty;
 
-        public string InnerFileName { get; set; }
+        public string InnerFileName { get; set; } = string.Empty;
 
-        public string Pattern { get; }
+        public string Pattern { get; } = string.Empty;
 
-        private string fileNameToOpen = null;
+        private string? fileNameToOpen = null;
 
         /// <summary>
         /// Use this property if FileNameDisplayed is not the same as FileNameReal.
@@ -85,24 +119,16 @@ namespace dnGREP.Common
             set { fileNameToOpen = value; }
         }
 
-        private FileData fileInfo;
+        private FileData? fileInfo = null;
         public FileData FileInfo
         {
             get
             {
-                if (fileInfo == null)
-                {
-                    if (!string.IsNullOrEmpty(InnerFileName))
-                    {
-                        fileInfo = ArchiveDirectory.GetFileData(this);
-                    }
-                    else
-                    {
-                        fileInfo = new FileData(FileNameReal);
-                    }
-                }
+                fileInfo ??= new(FileNameReal);
                 return fileInfo;
+
             }
+            set { fileInfo = value; }
         }
 
         public string FileSize
@@ -118,11 +144,11 @@ namespace dnGREP.Common
         /// <summary>
         /// Gets or sets additional information about the file to show in the results header
         /// </summary>
-        public string AdditionalInformation { get; set; }
+        public string AdditionalInformation { get; set; } = string.Empty;
 
-        public bool ReadOnly { get; set; } = false;
+        public bool IsReadOnlyFileType { get; set; } = false;
 
-        private List<GrepLine> searchResults;
+        private List<GrepLine>? searchResults;
 
         public bool HasSearchResults
         {
@@ -133,8 +159,16 @@ namespace dnGREP.Common
         {
             get
             {
-                return GetLinesWithContext(GrepSettings.Instance.Get<int>(GrepSettings.Key.ContextLinesBefore),
-                    GrepSettings.Instance.Get<int>(GrepSettings.Key.ContextLinesAfter));
+                if (GrepSettings.Instance.Get<bool>(GrepSettings.Key.ShowLinesInContext))
+                {
+                    return GetLinesWithContext(
+                        GrepSettings.Instance.Get<int>(GrepSettings.Key.ContextLinesBefore),
+                        GrepSettings.Instance.Get<int>(GrepSettings.Key.ContextLinesAfter));
+                }
+                else
+                {
+                    return GetLinesWithContext(0, 0);
+                }
             }
             set
             {
@@ -149,23 +183,24 @@ namespace dnGREP.Common
             {
                 if (File.Exists(FileNameReal))
                 {
-                    EOL = Utils.GetEOL(FileNameReal, Encoding);
-
-                    using (FileStream reader = File.Open(FileNameReal, FileMode.Open, FileAccess.Read, FileShare.ReadWrite))
+                    if (Utils.IsArchive(FileNameReal))
                     {
+                        searchResults = ArchiveDirectory.GetLinesWithContext(this, linesBefore, linesAfter);
+                    }
+                    else
+                    {
+                        EOL = Utils.GetEOL(FileNameReal, Encoding);
+
+                        using FileStream reader = File.Open(FileNameReal, FileMode.Open, FileAccess.Read, FileShare.ReadWrite);
                         if (IsHexFile)
                         {
-                            using (BinaryReader readStream = new BinaryReader(reader))
-                            { 
-                                searchResults = Utils.GetLinesHexFormat(readStream, Matches, linesBefore, linesAfter);
-                            }
+                            using BinaryReader readStream = new(reader);
+                            searchResults = Utils.GetLinesHexFormat(readStream, Matches, linesBefore, linesAfter);
                         }
                         else
                         {
-                            using (StreamReader streamReader = new StreamReader(reader, Encoding))
-                            {
-                                searchResults = Utils.GetLinesEx(streamReader, Matches, linesBefore, linesAfter);
-                            }
+                            using StreamReader streamReader = new(reader, Encoding);
+                            searchResults = Utils.GetLinesEx(streamReader, Matches, linesBefore, linesAfter);
                         }
                     }
                 }
@@ -180,5 +215,15 @@ namespace dnGREP.Common
         public List<GrepMatch> Matches { get; } = new List<GrepMatch>();
 
         public bool IsSuccess { get; }
+
+        public override bool Equals(object? obj)
+        {
+            return obj is GrepSearchResult gsr && gsr.Id == Id;
+        }
+
+        public override int GetHashCode()
+        {
+            return Id.GetHashCode(StringComparison.Ordinal);
+        }
     }
 }

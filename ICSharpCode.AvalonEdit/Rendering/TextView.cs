@@ -884,7 +884,7 @@ namespace ICSharpCode.AvalonEdit.Rendering
 			// Sometimes we still have invalid lines after UpdateLayout - work around the problem
 			// by calling MeasureOverride directly.
 			if (!VisualLinesValid) {
-				Debug.WriteLine("UpdateLayout() failed in EnsureVisualLines");
+				//Debug.WriteLine("UpdateLayout() failed in EnsureVisualLines");
 				MeasureOverride(lastAvailableSize);
 			}
 			if (!VisualLinesValid)
@@ -973,7 +973,7 @@ namespace ICSharpCode.AvalonEdit.Rendering
 			TextRunProperties globalTextRunProperties = CreateGlobalTextRunProperties();
 			VisualLineTextParagraphProperties paragraphProperties = CreateParagraphProperties(globalTextRunProperties);
 
-			Debug.WriteLine("Measure availableSize=" + availableSize + ", scrollOffset=" + scrollOffset);
+			//Debug.WriteLine("Measure availableSize=" + availableSize + ", scrollOffset=" + scrollOffset);
 			var firstLineInView = heightTree.GetLineByVisualPosition(scrollOffset.Y);
 
 			// number of pixels clipped from the first visual line(s)
@@ -1265,7 +1265,7 @@ namespace ICSharpCode.AvalonEdit.Rendering
 							}
 						}
 						startVC = element.VisualColumn;
-						length = element.DocumentLength;
+						length = element.VisualLength;
 						currentBrush = element.BackgroundBrush;
 					} else {
 						length += element.VisualLength;
@@ -2033,7 +2033,8 @@ namespace ICSharpCode.AvalonEdit.Rendering
 				|| e.Property == Control.FontSizeProperty
 				|| e.Property == Control.FontStretchProperty
 				|| e.Property == Control.FontStyleProperty
-				|| e.Property == Control.FontWeightProperty) {
+				|| e.Property == Control.FontWeightProperty
+				|| e.Property == Control.FlowDirectionProperty) {
 				// changing font properties requires recreating cached elements
 				RecreateCachedElements();
 				// and we need to re-measure the font metrics:

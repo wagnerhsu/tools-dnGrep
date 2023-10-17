@@ -1,6 +1,5 @@
 ﻿using System;
 using System.ComponentModel;
-using System.Runtime.InteropServices;
 using System.Text.RegularExpressions;
 using System.Windows;
 using System.Windows.Controls;
@@ -8,9 +7,13 @@ using System.Windows.Controls.Primitives;
 using System.Windows.Input;
 using System.Windows.Interop;
 using System.Windows.Markup;
+using dnGREP.Common;
+using dnGREP.Common.UI;
+using dnGREP.DockFloat;
 using dnGREP.Localization;
 using dnGREP.WPF.Properties;
-using DockFloat;
+using Windows.Win32;
+using Windows.Win32.Foundation;
 
 namespace dnGREP.WPF
 {
@@ -45,7 +48,7 @@ namespace dnGREP.WPF
             Height = LayoutProperties.MainWindowBounds.Height;
             WindowState = WindowState.Normal;
 
-            Rect windowBounds = new Rect(
+            Rect windowBounds = new(
                 LayoutProperties.MainWindowBounds.X,
                 LayoutProperties.MainWindowBounds.Y,
                 LayoutProperties.MainWindowBounds.Width,
@@ -65,13 +68,18 @@ namespace dnGREP.WPF
                             LayoutProperties.MainWindowBounds.Y);
                         WindowState = LayoutProperties.MainWindowState;
 
+                        TextBoxCommands.BindCommandsToWindow(this);
+
                         // after window is sized and positioned, asynchronously reset the preview
                         // splitter position (which got moved during the layout)
-                        Dispatcher.BeginInvoke((Action)(() =>
+                        Dispatcher.BeginInvoke(() =>
                         {
-                            viewModel.PreviewDockedWidth = LayoutProperties.PreviewDockedWidth;
-                            viewModel.PreviewDockedHeight = LayoutProperties.PreviewDockedHeight;
-                        }), null);
+                            if (viewModel != null)
+                            {
+                                viewModel.PreviewDockedWidth = LayoutProperties.PreviewDockedWidth;
+                                viewModel.PreviewDockedHeight = LayoutProperties.PreviewDockedHeight;
+                            }
+                        }, null);
                     }
                     else
                     {
@@ -93,14 +101,17 @@ namespace dnGREP.WPF
             DataContext = viewModel;
 
             viewModel.PreviewModel = previewControl.ViewModel;
+            DockViewModel.Instance.PropertyChanged += ViewModel_PropertyChanged;
 
             Loaded += Window_Loaded;
             Closing += MainForm_Closing;
 
-            KeyDown += MainForm_KeyDown;
+            PreviewKeyDown += MainForm_PreviewKeyDown;
         }
 
-        private void OnCurrentCultureChanged(object s, EventArgs e)
+        public MainViewModel ViewModel => viewModel;
+
+        private void OnCurrentCultureChanged(object? s, EventArgs e)
         {
             dpFrom.Language = XmlLanguage.GetLanguage(TranslationSource.Instance.CurrentCulture.IetfLanguageTag);
             dpTo.Language = XmlLanguage.GetLanguage(TranslationSource.Instance.CurrentCulture.IetfLanguageTag);
@@ -108,11 +119,6 @@ namespace dnGREP.WPF
             SetWatermark(dpFrom);
             SetWatermark(dpTo);
         }
-
-        [DllImport("user32.dll")]
-        static extern IntPtr SetParent(IntPtr hwnd, IntPtr hwndNewParent);
-
-        private const int HWND_MESSAGE = -3;
 
         protected override void OnSourceInitialized(EventArgs e)
         {
@@ -126,7 +132,7 @@ namespace dnGREP.WPF
                 if (PresentationSource.FromVisual(this) is HwndSource hwndSource)
                 {
                     // make this a message-only window
-                    SetParent(hwndSource.Handle, (IntPtr)HWND_MESSAGE);
+                    PInvoke.SetParent(new(hwndSource.Handle), HWND.HWND_MESSAGE);
                     Visibility = Visibility.Hidden;
                 }
             }
@@ -151,9 +157,19 @@ namespace dnGREP.WPF
 
             SetActivePreviewDockSite();
             DockSite.InitFloatingWindows();
+
+            previewControl.PreviewKeyDown += (s, a) =>
+            {
+                // called when the preview control is un-docked in a Floating Window
+                MainForm_PreviewKeyDown(s, a);
+                if (a.Handled)
+                {
+                    previewControl.SetFocus();
+                }
+            };
         }
 
-        private void SetWatermark(DatePicker dp)
+        private static void SetWatermark(DatePicker dp)
         {
             if (dp == null) return;
 
@@ -166,15 +182,16 @@ namespace dnGREP.WPF
             // force visual tree to be built, even if control is not visible
             tb.ApplyTemplate();
 
-            var wm = tb.Template.FindName("PART_Watermark", tb) as ContentControl;
-            if (wm == null) return;
-
-            wm.Content = Localization.Properties.Resources.Main_SelectADate;
+            if (tb.Template.FindName("PART_Watermark", tb) is ContentControl wm)
+            {
+                wm.Content = Localization.Properties.Resources.Main_SelectADate;
+            }
         }
 
         private void SetActivePreviewDockSite()
         {
-            if (viewModel.PreviewDockSide == Dock.Right)
+            var dvm = DockViewModel.Instance;
+            if (dvm.PreviewDockSide == Dock.Right)
             {
                 var element = dockSiteBottom.Content;
                 if (element != null)
@@ -183,7 +200,7 @@ namespace dnGREP.WPF
                     dockSiteRight.Content = element;
                 }
             }
-            else if (viewModel.PreviewDockSide == Dock.Bottom)
+            else if (dvm.PreviewDockSide == Dock.Bottom)
             {
                 var element = dockSiteRight.Content;
                 if (element != null)
@@ -196,15 +213,18 @@ namespace dnGREP.WPF
 
         private void AutoPosistionPreviewWindow(double ratio)
         {
-            if (viewModel.PreviewFileContent && viewModel.IsPreviewDocked && viewModel.PreviewAutoPosition)
+            var dvm = DockViewModel.Instance;
+            if (viewModel.PreviewFileContent && dvm.IsPreviewDocked && dvm.PreviewAutoPosition)
             {
-                if (ratio > UpperThreshold && viewModel.PreviewDockSide == Dock.Bottom)
+                if (ratio > UpperThreshold && dvm.PreviewDockSide == Dock.Bottom)
                 {
-                    viewModel.PreviewDockSide = Dock.Right;
+                    dvm.PreviewDockSide = Dock.Right;
+                    dvm.SaveSettings();
                 }
-                else if (ratio < LowerThreshold && viewModel.PreviewDockSide == Dock.Right)
+                else if (ratio < LowerThreshold && dvm.PreviewDockSide == Dock.Right)
                 {
-                    viewModel.PreviewDockSide = Dock.Bottom;
+                    dvm.PreviewDockSide = Dock.Bottom;
+                    dvm.SaveSettings();
                 }
             }
         }
@@ -228,8 +248,59 @@ namespace dnGREP.WPF
             }), null);
         }
 
-        private void MainForm_Closing(object sender, CancelEventArgs e)
+        /// <summary>
+        /// Show drag-drop effects for file drop when over the search path text box
+        /// </summary>
+        /// <param name="sender"></param>
+        /// <param name="e"></param>
+        private void SearchPath_PreviewDragOver(object sender, DragEventArgs e)
         {
+            if (e.Data.GetDataPresent(DataFormats.FileDrop))
+            {
+                bool append = e.KeyStates.HasFlag(DragDropKeyStates.ControlKey);
+                e.Effects = append ? DragDropEffects.Copy : DragDropEffects.Move;
+                e.Handled = true;
+            }
+        }
+
+        private void MainForm_Closing(object? sender, CancelEventArgs e)
+        {
+            if (viewModel.IsReplaceRunning)
+            {
+                MessageBox.Show(Localization.Properties.Resources.MessageBox_ReplaceInFilesIsRunning + Environment.NewLine +
+                    Localization.Properties.Resources.MessageBox_AllowItCompleteOrCancelItBeforeExiting,
+                    Localization.Properties.Resources.MessageBox_DnGrep,
+                    MessageBoxButton.OK, MessageBoxImage.Warning,
+                    MessageBoxResult.OK, TranslationSource.Instance.FlowDirection);
+
+                e.Cancel = true;
+                return;
+            }
+
+            if (GrepSettings.Instance.Get<bool>(GrepSettings.Key.ConfirmExitScript) &&
+                viewModel.IsScriptRunning)
+            {
+                if (!viewModel.ConfirmScriptExit())
+                {
+                    e.Cancel = true;
+                    return;
+                }
+            }
+
+            if (GrepSettings.Instance.Get<bool>(GrepSettings.Key.ConfirmExitSearch))
+            {
+                TimeSpan threshold = TimeSpan.FromMinutes(GrepSettings.Instance.Get<double>(GrepSettings.Key.ConfirmExitSearchDuration));
+
+                if (viewModel.CurrentSearchDuration > threshold || viewModel.LatestSearchDuration > threshold)
+                {
+                    if (!viewModel.ConfirmSearchExit())
+                    {
+                        e.Cancel = true;
+                        return;
+                    }
+                }
+            }
+
             viewModel.CancelSearch();
 
             if (WindowState == WindowState.Normal)
@@ -250,21 +321,25 @@ namespace dnGREP.WPF
 
             previewControl.SaveSettings();
             viewModel.SaveSettings();
-        }
-
-        private void ViewModel_PreviewShow(object sender, EventArgs e)
-        {
-            foreach (Window wind in DockSite.GetAllFloatWindows(this))
+            if (!viewModel.Closing())
             {
-                if (wind.WindowState == WindowState.Minimized)
-                    wind.WindowState = WindowState.Normal;
-                wind.Show();
-                wind.Activate();
-                wind.Focus(); // needs focus so the Esc key will close (hide) the preview
+                e.Cancel = true;
             }
         }
 
-        private void ViewModel_PreviewHide(object sender, EventArgs e)
+        private void ViewModel_PreviewShow(object? sender, EventArgs e)
+        {
+            foreach (Window wnd in DockSite.GetAllFloatWindows(this))
+            {
+                if (wnd.WindowState == WindowState.Minimized)
+                    wnd.WindowState = WindowState.Normal;
+
+                if (!wnd.IsVisible)
+                    wnd.Show();
+            }
+        }
+
+        private void ViewModel_PreviewHide(object? sender, EventArgs e)
         {
             foreach (Window wind in DockSite.GetAllFloatWindows(this))
             {
@@ -272,7 +347,7 @@ namespace dnGREP.WPF
             }
         }
 
-        private void ViewModel_PropertyChanged(object sender, PropertyChangedEventArgs e)
+        private void ViewModel_PropertyChanged(object? sender, PropertyChangedEventArgs e)
         {
             if (e.PropertyName == "IsPreviewDocked")
             {
@@ -287,14 +362,17 @@ namespace dnGREP.WPF
                 SetActivePreviewDockSite();
 
                 // if the user manually selects the other dock location, turn off auto positioning
+                var dvm = DockViewModel.Instance;
                 double ratio = ActualWidth / ActualHeight;
-                if (ratio > UpperThreshold && viewModel.PreviewDockSide == Dock.Bottom)
+                if (ratio > UpperThreshold && dvm.PreviewDockSide == Dock.Bottom)
                 {
-                    viewModel.PreviewAutoPosition = false;
+                    dvm.PreviewAutoPosition = false;
+                    dvm.SaveSettings();
                 }
-                else if (ratio < LowerThreshold && viewModel.PreviewDockSide == Dock.Right)
+                else if (ratio < LowerThreshold && dvm.PreviewDockSide == Dock.Right)
                 {
-                    viewModel.PreviewAutoPosition = false;
+                    dvm.PreviewAutoPosition = false;
+                    dvm.SaveSettings();
                 }
             }
         }
@@ -302,9 +380,9 @@ namespace dnGREP.WPF
         #region UI fixes
         private void TextBoxFocus(object sender, RoutedEventArgs e)
         {
-            if (e.Source is TextBox)
+            if (e.Source is TextBox box)
             {
-                ((TextBox)e.Source).SelectAll();
+                box.SelectAll();
             }
         }
 
@@ -315,8 +393,8 @@ namespace dnGREP.WPF
 
         private static bool IsTextAllowed(string text)
         {
-            Regex regex = new Regex("\\d+"); //regex that matches allowed text
-            return regex.IsMatch(text);
+            //regex that matches allowed text
+            return AllowedTextRegex().IsMatch(text);
         }
 
         // Use the DataObject.Pasting Handler 
@@ -367,17 +445,6 @@ namespace dnGREP.WPF
                 ((ComboBox)sender).SelectedIndex = 0;
         }
 
-        private void WrapPanel_SizeChanged(object sender, SizeChangedEventArgs e)
-        {
-            var panel = (WrapPanel)sender;
-
-            var maxWidth = panel.ActualWidth -
-                LeftFileOptions.ActualWidth - LeftFileOptions.Margin.Left - LeftFileOptions.Margin.Right -
-                MiddleFileOptions.ActualWidth - MiddleFileOptions.Margin.Left - MiddleFileOptions.Margin.Right -
-                RightFileOptions.ActualWidth - RightFileOptions.Margin.Left - RightFileOptions.Margin.Right;
-            SpacerFileOptions.Width = Math.Max(0, maxWidth);
-        }
-
         private void Expander_SizeChanged(object sender, SizeChangedEventArgs e)
         {
             // set the max width of the File Filters Summary text block so the Search In Archives checkbox does not overlap it
@@ -393,12 +460,18 @@ namespace dnGREP.WPF
             viewModel.MaxFileFiltersSummaryWidth = Math.Max(0, maxWidth);
         }
 
-        private void MainForm_KeyDown(object sender, KeyEventArgs e)
+        private void MainForm_PreviewKeyDown(object sender, KeyEventArgs e)
         {
             if (e.Key == Key.F3 && Keyboard.Modifiers == ModifierKeys.None)
             {
                 resultsTree.SetFocus();
                 resultsTree.Next();
+                e.Handled = true;
+            }
+            else if (e.Key == Key.F3 && Keyboard.Modifiers.HasFlag(ModifierKeys.Shift))
+            {
+                resultsTree.SetFocus();
+                resultsTree.NextFile();
                 e.Handled = true;
             }
             else if (e.Key == Key.F4 && Keyboard.Modifiers == ModifierKeys.None)
@@ -407,6 +480,63 @@ namespace dnGREP.WPF
                 resultsTree.Previous();
                 e.Handled = true;
             }
+            else if (e.Key == Key.F4 && Keyboard.Modifiers.HasFlag(ModifierKeys.Shift))
+            {
+                resultsTree.SetFocus();
+                resultsTree.PreviousFile();
+                e.Handled = true;
+            }
         }
+
+        private DateTime timeOfLastMessage = DateTime.Now;
+
+        /// <summary>Brings main window to foreground.</summary>
+        public void BringToForeground(string searchPath)
+        {
+            TimeSpan fromLastMessage = DateTime.Now - timeOfLastMessage;
+            timeOfLastMessage = DateTime.Now;
+
+            bool replace = fromLastMessage > TimeSpan.FromMilliseconds(500);
+
+            if (GrepSettings.Instance.Get<bool>(GrepSettings.Key.PassSearchFolderToSingleton) &&
+                !string.IsNullOrEmpty(searchPath))
+            {
+                if (replace || string.IsNullOrEmpty(viewModel.FileOrFolderPath))
+                {
+                    viewModel.FileOrFolderPath = searchPath;
+                }
+                else
+                {
+                    bool found = false;
+                    foreach (var subPath in UiUtils.SplitPath(viewModel.FileOrFolderPath, true))
+                    {
+                        if (subPath.Equals(searchPath, StringComparison.OrdinalIgnoreCase))
+                        {
+                            found = true;
+                            break;
+                        }
+                    }
+                    if (!found)
+                    {
+                        viewModel.FileOrFolderPath += ";" + searchPath;
+                    }
+                }
+            }
+
+            if (WindowState == WindowState.Minimized || Visibility == Visibility.Hidden)
+            {
+                Show();
+                WindowState = WindowState.Normal;
+            }
+
+            // According to some sources these steps gurantee that an app will be brought to foreground.
+            Activate();
+            Topmost = true;
+            Topmost = false;
+            Focus();
+        }
+
+        [GeneratedRegex("\\d+")]
+        private static partial Regex AllowedTextRegex();
     }
 }

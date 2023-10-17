@@ -1,11 +1,7 @@
 ﻿using System;
+using System.IO;
 using dnGREP.Common;
 using Xunit;
-using Directory = Alphaleonis.Win32.Filesystem.Directory;
-using DirectoryInfo = Alphaleonis.Win32.Filesystem.DirectoryInfo;
-using File = Alphaleonis.Win32.Filesystem.File;
-using FileInfo = Alphaleonis.Win32.Filesystem.FileInfo;
-using Path = Alphaleonis.Win32.Filesystem.Path;
 
 namespace Tests
 {
@@ -29,8 +25,8 @@ namespace Tests
         {
             GrepSettings storage = GrepSettings.Instance;
             storage.Clear();
-            Assert.Empty(storage);
-            storage["test"] = "hello";
+            Assert.True(storage.Count == 0);
+            storage.Set("test", "hello");
             storage.Save(destinationFolder + "\\test.xml");
             Assert.True(File.Exists(destinationFolder + "\\test.xml"));
             Assert.True(new FileInfo(destinationFolder + "\\test.xml").Length > 10);
@@ -41,13 +37,13 @@ namespace Tests
         {
             GrepSettings storage = GrepSettings.Instance;
             storage.Clear();
-            Assert.Empty(storage);
-            storage["test"] = "hello";
+            Assert.True(storage.Count == 0);
+            storage.Set("test", "hello");
             storage.Save(destinationFolder + "\\test.xml");
             storage.Clear();
-            Assert.Empty(storage);
+            Assert.True(storage.Count == 0);
             storage.Load(destinationFolder + "\\test.xml");
-            Assert.True(storage["test"] == "hello");
+            Assert.True(storage.Get<string>("test") == "hello");
         }
 
         [Fact]
@@ -55,15 +51,26 @@ namespace Tests
         {
             GrepSettings storage = GrepSettings.Instance;
             storage.Clear();
-            Assert.Empty(storage);
+            Assert.True(storage.Count == 0);
             storage.Set("size", 10);
             storage.Set("isTrue", true);
+            DateTime? start = null;
+            storage.Set("startDate", start);
+            DateTime? end = new(2023, 02, 28, 16, 14, 12, DateTimeKind.Local);
+            storage.Set("endDate", end);
+            bool? indetermnate = null;
+            storage.Set("indetermnate", indetermnate);
+
             storage.Save(destinationFolder + "\\test.xml");
             storage.Clear();
-            Assert.Empty(storage);
+            Assert.True(storage.Count == 0);
             storage.Load(destinationFolder + "\\test.xml");
+
             Assert.Equal(10, storage.Get<int>("size"));
             Assert.True(storage.Get<bool>("isTrue"));
+            Assert.Null(storage.GetNullable<DateTime?>("startDate"));
+            Assert.Equal(end, storage.GetNullable<DateTime?>("endDate"));
+            Assert.Null(storage.GetNullable<bool?>("indetermnate"));
         }
     }
 }

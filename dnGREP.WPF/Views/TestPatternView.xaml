@@ -44,6 +44,7 @@
         <my:StringNotNullOrEmptyConverter x:Key="notNullOrEmpty" />
         <my:ValidationColorConverter x:Key="validationColor" />
         <my:BoolToVisibilityConverter x:Key="boolToVis" TrueValue="Visible" FalseValue="Collapsed" />
+        <my:BoolToVisibilityConverter x:Key="BoolToHiddenVisibilityConverter" TrueValue="Visible" FalseValue="Hidden" />
     </Window.Resources>
 
     <DockPanel>
@@ -56,77 +57,73 @@
                         <RowDefinition Height="*" />
                         <RowDefinition Height="Auto" />
                     </Grid.RowDefinitions>
-                    <Grid.ColumnDefinitions>
-                        <ColumnDefinition Width="Auto"/>
-                        <ColumnDefinition />
-                    </Grid.ColumnDefinitions>
-                    <StackPanel Grid.Row="0" Grid.Column="0" Orientation="Horizontal">
-                        <RadioButton Content="{l:Loc Key='Test_SearchType_Regex'}" Margin="3,4,3,3" GroupName="SearchRegex"
+                    <WrapPanel Grid.Row="0" Orientation="Horizontal">
+                        <RadioButton Content="{l:Loc Key='Test_SearchType_Regex'}" Margin="3,4,3,3" GroupName="SearchType"
                                      IsChecked="{Binding Path=TypeOfSearch, Converter={StaticResource ebc}, 
-                                        ConverterParameter=Regex}"/>
-                        <RadioButton Content="{l:Loc Key='Test_SearchType_XPath'}" Margin="3,4,3,3" GroupName="SearchXPath"
+                                     ConverterParameter=Regex}"/>
+                        <RadioButton Content="{l:Loc Key='Test_SearchType_XPath'}" Margin="3,4,3,3" GroupName="SearchType"
                                      IsChecked="{Binding Path=TypeOfSearch, Converter={StaticResource ebc}, 
-                                        ConverterParameter=XPath}"/>
-                        <RadioButton Content="{l:Loc Key='Test_SearchType_Text'}" Margin="3,4,3,3" GroupName="SearchText"
+                                     ConverterParameter=XPath}"/>
+                        <RadioButton Content="{l:Loc Key='Test_SearchType_Text'}" Margin="3,4,3,3" GroupName="SearchType"
                                      IsChecked="{Binding Path=TypeOfSearch, Converter={StaticResource ebc}, 
-                                        ConverterParameter=PlainText}"/>
-                        <RadioButton Content="{l:Loc Key='Test_SearchType_Phonetic'}" Margin="3,4,3,3" GroupName="SearchSoundex"
+                                     ConverterParameter=PlainText}"/>
+                        <RadioButton Content="{l:Loc Key='Test_SearchType_Phonetic'}" Margin="3,4,3,3" GroupName="SearchType"
                                      IsChecked="{Binding Path=TypeOfSearch, Converter={StaticResource ebc}, 
-                                        ConverterParameter=Soundex}"/>
-                    </StackPanel>
-                    <StackPanel Grid.Row="0" Grid.Column="1" Orientation="Horizontal" HorizontalAlignment="Center">
-                        <Border Background="#12FFFFFF" CornerRadius="3" 
+                                     ConverterParameter=Soundex}"/>
+                        <RadioButton Content="{l:Loc Key='Test_SearchType_Hex'}" Margin="3,4,3,3" GroupName="SearchType"
+                                     IsChecked="{Binding Path=TypeOfSearch, Converter={StaticResource ebc}, 
+                                     ConverterParameter=Hex}"/>
+                    </WrapPanel>
+                    <Grid Grid.Row="1">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition/>
+                            <ColumnDefinition/>
+                        </Grid.ColumnDefinitions>
+                        <Grid.RowDefinitions>
+                            <RowDefinition/>
+                            <RowDefinition/>
+                        </Grid.RowDefinitions>
+                        <Label Grid.Row="0" Grid.Column="0" Content="{l:Loc Key='Test_SearchFor'}"/>
+                        <Border Grid.Row="0" Grid.Column="1" HorizontalAlignment="Center"
+                                Background="#12FFFFFF" CornerRadius="3" 
                                 Visibility="{Binding HasValidationMessage, Converter={StaticResource boolToVis}}">
-                            <Label HorizontalAlignment="Center" Padding="12,3" FontWeight="SemiBold"
-                                   Content="{Binding ValidationMessage}"
-                                   Foreground="{Binding IsValidPattern, Converter={StaticResource validationColor}}"
-                                   Background="Transparent">
+                            <Label Padding="12,3" FontWeight="SemiBold"
+                                Content="{Binding ValidationMessage}"
+                                ToolTip="{Binding ValidationToolTip}"
+                                Foreground="{Binding IsValidPattern, Converter={StaticResource validationColor}}"
+                                Background="Transparent">
                             </Label>
                         </Border>
-                    </StackPanel>
-                    <GroupBox Grid.Row="1" Grid.Column="0" Grid.ColumnSpan="2"
-                              Header="{l:Loc Key='Test_SearchFor'}" BorderThickness="0">
-                        <TextBox Margin="-5,3,-5,0"
+                        <TextBox Grid.Row="1" Grid.Column="0" Grid.ColumnSpan="2"
                                  Text="{Binding Path=SearchFor, UpdateSourceTrigger=PropertyChanged}"
                                  VerticalScrollBarVisibility="Auto"
                                  Style="{StaticResource ExpandedTextbox}">
                             <TextBox.ToolTip>
-                                <TextBlock>
-                                    <Run Text="{l:Loc Key='TTA1_MatchesAllCharacters'}"/>
-                                    <LineBreak />
-                                    <Run Text="{l:Loc Key='TTA2_MatchesAlphaNumerics'}"/>
-                                    <LineBreak />
-                                    <Run Text="{l:Loc Key='TTA3_MatchesDigits'}"/>
-                                    <LineBreak />
-                                    <Run Text="{l:Loc Key='TTA4_MatchesSpace'}"/>
-                                    <LineBreak />
-                                    <Run Text="{l:Loc Key='TTA5_MatchesAnyNumberOfCharacters'}"/>
-                                    <LineBreak />
-                                    <Run Text="{l:Loc Key='TTA6_Matches1To3Characters'}"/>
-                                    <LineBreak />
-                                    <Run Text="{l:Loc Key='TTA7_ForMoreRegexPatternsHitF1'}"/>
-                                </TextBlock>
+                                <ToolTip Visibility="{Binding SearchToolTipVisible, Converter={StaticResource BoolToHiddenVisibilityConverter}}">
+                                    <TextBlock Text="{Binding SearchToolTip}"/>
+                                </ToolTip>
                             </TextBox.ToolTip>
                         </TextBox>
-                    </GroupBox>
-                    <GroupBox Grid.Row="2" Grid.Column="0" Grid.ColumnSpan="2"
-                              Header="{l:Loc Key='Test_ReplaceWith'}" BorderThickness="0">
-                        <TextBox Margin="-5,3,-5,0"
+                    </Grid>
+                    <Grid Grid.Row="2" Grid.Column="0">
+                        <Grid.RowDefinitions>
+                            <RowDefinition/>
+                            <RowDefinition/>
+                        </Grid.RowDefinitions>
+                        <Label Grid.Row="0" Content="{l:Loc Key='Test_ReplaceWith'}"/>
+                        <TextBox Grid.Row="1"
                                  Text="{Binding Path=ReplaceWith, UpdateSourceTrigger=PropertyChanged}"
                                  VerticalScrollBarVisibility="Auto"
-                                 Style="{StaticResource ExpandedTextbox}">
+                                 Style="{StaticResource ExpandedTextbox}"
+                                 IsReadOnly="{Binding IsReplaceReadOnly}">
                             <TextBox.ToolTip>
-                                <TextBlock>
-                                    <Run Text="{l:Loc Key='TTB1_ReplacesEntireRegex'}"/>
-                                    <LineBreak />
-                                    <Run Text="{l:Loc Key='TTB2_InsertsTheTextMatchedIntoTheReplacementText'}"/>
-                                    <LineBreak />
-                                    <Run Text="{l:Loc Key='TTB3_InsertsASingleDollarSignIntoTheReplacementText'}"/>
-                                </TextBlock>
+                                <ToolTip Visibility="{Binding ReplaceToolTipVisible, Converter={StaticResource BoolToHiddenVisibilityConverter}}">
+                                    <TextBlock Text="{Binding ReplaceToolTip}"/>
+                                </ToolTip>
                             </TextBox.ToolTip>
                         </TextBox>
-                    </GroupBox>
-                    <UniformGrid Grid.Row="3" Grid.Column="0" Grid.ColumnSpan="2" Margin="8,0,0,0" Rows="2">
+                    </Grid>
+                    <UniformGrid Grid.Row="3" Grid.Column="0" Margin="8,0,0,0" Rows="2">
                         <CheckBox Content="{l:Loc Key='Test_CaseSensitive'}" Margin="3,4,3,3" 
                                     IsChecked="{Binding Path=CaseSensitive}"
                                     IsEnabled="{Binding Path=IsCaseSensitiveEnabled}"/>
@@ -163,7 +160,8 @@
                 <TextBox MinHeight="60"
                          Margin="5" AcceptsReturn="True" TextWrapping="Wrap"
                          VerticalScrollBarVisibility="Auto"
-                         FontFamily="Consolas"
+                         FontFamily="{Binding ResultsFontFamily}"
+                         FontSize="{Binding ResultsFontSize}"
                          Text="{Binding Path=SampleText, UpdateSourceTrigger=PropertyChanged}" />
             </DockPanel>
             <GridSplitter Grid.Row="1" Height="2" Background="{DynamicResource Splitter.Background}" 
@@ -178,7 +176,8 @@
                         <my:InlineTextBlock Margin="3,0,0,0" MinHeight="60"
                                             HorizontalAlignment="Stretch" VerticalAlignment="Top"
                                             InlineCollection="{Binding SearchOutput}"
-                                            FontFamily="Consolas"
+                                            FontFamily="{Binding ResultsFontFamily}"
+                                            FontSize="{Binding ResultsFontSize}"
                                             Style="{StaticResource ThemedTextBlock}" />
                     </ScrollViewer>
                 </Border>
@@ -199,7 +198,8 @@
                         <my:InlineTextBlock Margin="3,0,0,0" MinHeight="60"
                                             HorizontalAlignment="Stretch" VerticalAlignment="Top"
                                             InlineCollection="{Binding ReplaceOutput}"
-                                            FontFamily="Consolas"
+                                            FontFamily="{Binding ResultsFontFamily}"
+                                            FontSize="{Binding ResultsFontSize}"
                                             Style="{StaticResource ThemedTextBlock}" />
                     </ScrollViewer>
                     <Border.ContextMenu>

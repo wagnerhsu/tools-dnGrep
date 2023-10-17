@@ -5,22 +5,19 @@ using System.IO;
 using System.Reflection;
 using System.Text;
 using dnGREP.Common;
+using dnGREP.Common.IO;
+using dnGREP.Localization;
 using NLog;
-using Directory = Alphaleonis.Win32.Filesystem.Directory;
-using DirectoryInfo = Alphaleonis.Win32.Filesystem.DirectoryInfo;
-using File = Alphaleonis.Win32.Filesystem.File;
-using FileInfo = Alphaleonis.Win32.Filesystem.FileInfo;
-using Path = Alphaleonis.Win32.Filesystem.Path;
 
 namespace dnGREP.Engines.Pdf
 {
     /// <summary>
-    /// Based on a MicrosoftWordPlugin class for AstroGrep by Curtis Beard. Thank you!
+    /// Plug-in for searching PDF documents
     /// </summary>
-    public class GrepEnginePdf : GrepEngineBase, IGrepEngine
+    public class GrepEnginePdf : GrepEngineBase, IGrepPluginEngine
     {
-        private static Logger logger = LogManager.GetCurrentClassLogger();
-        private string pathToPdfToText = "";
+        private static readonly Logger logger = LogManager.GetCurrentClassLogger();
+        private string pathToPdfToText = string.Empty;
 
         #region Initialization and disposal
         public override bool Initialize(GrepEngineInitParams param, FileFilter filter)
@@ -29,7 +26,7 @@ namespace dnGREP.Engines.Pdf
             try
             {
                 // Make sure pdftotext.exe exists
-                pathToPdfToText = Utils.GetCurrentPath(typeof(GrepEnginePdf)) + "\\pdftotext.exe";
+                pathToPdfToText = Path.Combine(Utils.GetCurrentPath(typeof(GrepEnginePdf)), "xpdf", "pdftotext.exe");
                 if (File.Exists(pathToPdfToText))
                     return true;
                 else
@@ -44,25 +41,25 @@ namespace dnGREP.Engines.Pdf
 
         #endregion
 
+        public IList<string> DefaultFileExtensions => new string[] { "pdf" };
 
-        public IList<string> DefaultFileExtensions
-        {
-            get { return new string[] { "pdf" }; }
-        }
-        public bool IsSearchOnly
-        {
-            get { return true; }
-        }
+        public bool IsSearchOnly => true;
 
-        public List<GrepSearchResult> Search(string file, string searchPattern, SearchType searchType, GrepSearchOption searchOptions, Encoding encoding)
+        public bool PreviewPlainText { get; set; }
+
+        public List<GrepSearchResult> Search(string file, string searchPattern, SearchType searchType,
+            GrepSearchOption searchOptions, Encoding encoding, PauseCancelToken pauseCancelToken)
         {
-            string tempFolder = Path.Combine(Utils.GetTempFolder(), "dnGREP-PDF");
+            string tempFile = string.Empty;
+            IGrepEngine? engine = null;
             try
             {
                 // Extract text
-                string tempFile = ExtractText(file);
+                tempFile = ExtractText(file);
                 if (!File.Exists(tempFile))
                     throw new ApplicationException("pdftotext failed to create text file.");
+
+                pauseCancelToken.WaitWhilePausedOrThrowIfCancellationRequested();
 
                 // GrepCore cannot check encoding of the original pdf file. If the encoding parameter is not default
                 // then it is the user-specified code page.  If the encoding parameter *is* the default,
@@ -70,54 +67,78 @@ namespace dnGREP.Engines.Pdf
                 if (encoding == Encoding.Default)
                     encoding = Utils.GetFileEncoding(tempFile);
 
-                IGrepEngine engine = GrepEngineFactory.GetSearchEngine(tempFile, initParams, FileFilter, searchType);
-                List<GrepSearchResult> results = engine.Search(tempFile, searchPattern, searchType, searchOptions, encoding);
-
-                if (results.Count > 0)
+                engine = GrepEngineFactory.GetSearchEngine(tempFile, initParams, FileFilter, searchType);
+                if (engine != null)
                 {
-                    using (FileStream reader = File.Open(tempFile, FileMode.Open, FileAccess.Read, FileShare.ReadWrite))
-                    using (StreamReader streamReader = new StreamReader(reader, encoding))
+                    List<GrepSearchResult> results = engine.Search(tempFile, searchPattern, searchType, searchOptions, encoding, pauseCancelToken);
+
+                    if (results.Count > 0)
                     {
-                        foreach (var result in results)
+                        using (FileStream reader = new(tempFile, FileMode.Open, FileAccess.Read, FileShare.ReadWrite, 4096, FileOptions.SequentialScan))
+                        using (StreamReader streamReader = new(reader, encoding, false, 4096, true))
                         {
-                            result.SearchResults = Utils.GetLinesEx(streamReader, result.Matches, initParams.LinesBefore, initParams.LinesAfter);
+                            foreach (var result in results)
+                            {
+                                result.SearchResults = Utils.GetLinesEx(streamReader, result.Matches, initParams.LinesBefore, initParams.LinesAfter, true);
+                            }
+                        }
+
+                        foreach (GrepSearchResult result in results)
+                        {
+                            result.IsReadOnlyFileType = true;
+                            result.FileNameDisplayed = file;
+                            if (PreviewPlainText)
+                            {
+                                result.FileInfo.TempFile = tempFile;
+                            }
+                            result.FileNameReal = file;
                         }
                     }
 
-                    foreach (GrepSearchResult result in results)
-                    {
-                        result.ReadOnly = true;
-                        if (file.Contains(tempFolder))
-                            result.FileNameDisplayed = file.Substring(tempFolder.Length + 1);
-                        else
-                            result.FileNameDisplayed = file;
-                        result.FileNameReal = file;
-                    }
+                    return results;
                 }
-
-                GrepEngineFactory.ReturnToPool(tempFile, engine);
-
-                return results;
+            }
+            catch (OperationCanceledException)
+            {
+                // expected exception
+            }
+            catch (PdfToTextException ex)
+            {
+                return new List<GrepSearchResult>()
+                {
+                    new GrepSearchResult(file, searchPattern, ex.Message, false)
+                };
             }
             catch (Exception ex)
             {
-                logger.Error(ex, $"Failed to search inside PDF file: {ex.Message}");
-                return new List<GrepSearchResult>();
+                logger.Error(ex, $"Failed to search inside PDF file: [{file}]");
+                return new List<GrepSearchResult>()
+                {
+                    new GrepSearchResult(file, searchPattern, ex.Message, false)
+                };
             }
+            finally
+            {
+                if (engine != null)
+                {
+                    GrepEngineFactory.ReturnToPool(tempFile, engine);
+                }
+            }
+            return new List<GrepSearchResult>();
         }
 
         // the stream version will get called if the file is in an archive
-        public List<GrepSearchResult> Search(Stream input, string fileName, string searchPattern, SearchType searchType, GrepSearchOption searchOptions, Encoding encoding)
+        public List<GrepSearchResult> Search(Stream input, string fileName, string searchPattern,
+            SearchType searchType, GrepSearchOption searchOptions, Encoding encoding, PauseCancelToken pauseCancelToken)
         {
             // write the stream to a temp folder, and run the file version of the search
             string tempFolder = Path.Combine(Utils.GetTempFolder(), "dnGREP-PDF");
-            // the fileName may contain the partial path of the directory structure in the archive
-            string filePath = Path.Combine(tempFolder, fileName);
+            if (!Directory.Exists(tempFolder))
+                Directory.CreateDirectory(tempFolder);
 
-            // use the directory name to also include folders within the archive
-            string directory = Path.GetDirectoryName(filePath);
-            if (!Directory.Exists(directory))
-                Directory.CreateDirectory(directory);
+            // ensure each temp file is unique, even if the file name exists elsewhere in the search tree
+            string extractFileName = Path.GetFileNameWithoutExtension(fileName) + "_" + Path.GetFileNameWithoutExtension(Path.GetRandomFileName()) + ".pdf";
+            string filePath = Path.Combine(tempFolder, extractFileName);
 
             using (var fileStream = File.Create(filePath))
             {
@@ -125,7 +146,17 @@ namespace dnGREP.Engines.Pdf
                 input.CopyTo(fileStream);
             }
 
-            return Search(filePath, searchPattern, searchType, searchOptions, encoding);
+            var results = Search(filePath, searchPattern, searchType, searchOptions, encoding, pauseCancelToken);
+
+            bool isInArchive = fileName.Contains(ArchiveDirectory.ArchiveSeparator, StringComparison.Ordinal);
+            if (isInArchive && results.Count > 0)
+            {
+                foreach (GrepSearchResult gsr in results)
+                {
+                    gsr.FileNameDisplayed = fileName;
+                }
+            }
+            return results;
         }
 
         private string ExtractText(string pdfFilePath)
@@ -133,63 +164,47 @@ namespace dnGREP.Engines.Pdf
             string tempFolder = Path.Combine(Utils.GetTempFolder(), "dnGREP-PDF");
             if (!Directory.Exists(tempFolder))
                 Directory.CreateDirectory(tempFolder);
-            string tempFileName = Path.Combine(tempFolder, Path.GetFileNameWithoutExtension(pdfFilePath) + ".txt");
+            // ensure each temp file is unique, even if the file name exists elsewhere in the search tree
+            string fileName = Path.GetFileNameWithoutExtension(pdfFilePath) + "_" + Path.GetFileNameWithoutExtension(Path.GetRandomFileName()) + ".txt";
+            string tempFileName = Path.Combine(tempFolder, fileName);
 
-            if (pdfFilePath.Length > 260 && !pdfFilePath.StartsWith(@"\\?\"))
+            string longPdfFilePath = PathEx.GetLongPath(pdfFilePath);
+            string options = GrepSettings.Instance.Get<string>(GrepSettings.Key.PdfToTextOptions) ?? "-layout -enc UTF-8 -bom -cfg xpdfrc";
+
+            using Process process = new();
+            // use command prompt
+            process.StartInfo.FileName = pathToPdfToText;
+            process.StartInfo.Arguments = string.Format("{0} \"{1}\" \"{2}\"", options, longPdfFilePath, tempFileName);
+            process.StartInfo.UseShellExecute = false;
+            process.StartInfo.WorkingDirectory = Path.Combine(Utils.GetCurrentPath(typeof(GrepEnginePdf)), "xpdf");
+            process.StartInfo.CreateNoWindow = true;
+            // start cmd prompt, execute command
+            process.Start();
+            process.WaitForExit();
+
+            if (process.ExitCode == 0)
+                return tempFileName;
+            else
             {
-                pdfFilePath = @"\\?\" + pdfFilePath;
-            }
-
-            string options = GrepSettings.Instance.Get<string>(GrepSettings.Key.PdfToTextOptions);
-
-            using (Process process = new Process())
-            {
-                // use command prompt
-                process.StartInfo.FileName = pathToPdfToText;
-                process.StartInfo.Arguments = string.Format("{0} \"{1}\" \"{2}\"", options, pdfFilePath, tempFileName);
-                process.StartInfo.UseShellExecute = false;
-                process.StartInfo.WorkingDirectory = Utils.GetCurrentPath(typeof(GrepEnginePdf));
-                process.StartInfo.CreateNoWindow = true;
-                // start cmd prompt, execute command
-                process.Start();
-                process.WaitForExit();
-
-                if (process.ExitCode == 0)
-                    return tempFileName;
-                else
+                string errorMessage = string.Empty;
+                errorMessage = process.ExitCode switch
                 {
-                    string errorMessage = string.Empty;
-                    switch (process.ExitCode)
-                    {
-                        case 1:
-                            errorMessage = "Error opening PDF file";
-                            break;
-                        case 2:
-                            errorMessage = "Error opening an output file";
-                            break;
-                        case 3:
-                            errorMessage = "Error related to PDF permissions";
-                            break;
-                        default:
-                            errorMessage = "Unknown error";
-                            break;
-                    }
-
-                    throw new Exception($"pdftotext returned '{errorMessage}' converting '{pdfFilePath}'");
-                }
+                    1 => Localization.Properties.Resources.Error_ErrorOpeningPDFFile,
+                    2 => Localization.Properties.Resources.Error_ErrorOpeningAnOutputFile,
+                    3 => Localization.Properties.Resources.Error_ErrorRelatedToPDFPermissions,
+                    _ => Localization.Properties.Resources.Error_OtherError,
+                };
+                throw new PdfToTextException(TranslationSource.Format(Localization.Properties.Resources.Error_PdftotextReturned0Reading1, errorMessage, pdfFilePath));
             }
         }
 
         public bool Replace(string sourceFile, string destinationFile, string searchPattern, string replacePattern, SearchType searchType,
-            GrepSearchOption searchOptions, Encoding encoding, IEnumerable<GrepMatch> replaceItems)
+            GrepSearchOption searchOptions, Encoding encoding, IEnumerable<GrepMatch> replaceItems, PauseCancelToken pauseCancelToken)
         {
             throw new Exception("The method or operation is not implemented.");
         }
 
-        public Version FrameworkVersion
-        {
-            get { return Assembly.GetAssembly(typeof(IGrepEngine)).GetName().Version; }
-        }
+        public Version? FrameworkVersion => Assembly.GetAssembly(typeof(IGrepEngine))?.GetName()?.Version;
 
         public void Unload()
         {

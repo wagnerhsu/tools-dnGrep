@@ -34,7 +34,8 @@ namespace dnGREP.Engines
         /// <param name="isMultiline"></param>
         /// <param name="encoding"></param>
         /// <returns>List of results. If nothing is found returns empty list</returns>
-        List<GrepSearchResult> Search(string file, string searchPattern, SearchType searchType, GrepSearchOption searchOptions, Encoding encoding);
+        List<GrepSearchResult> Search(string file, string searchPattern, SearchType searchType,
+            GrepSearchOption searchOptions, Encoding encoding, PauseCancelToken pauseCancelToken);
 
         /// <summary>
         /// Searches an input stream for files whose content matches regex
@@ -46,10 +47,11 @@ namespace dnGREP.Engines
         /// <param name="searchOptions"></param>
         /// <param name="encoding"></param>
         /// <returns></returns>
-        List<GrepSearchResult> Search(Stream input, string fileName, string searchPattern, SearchType searchType, GrepSearchOption searchOptions, Encoding encoding);
+        List<GrepSearchResult> Search(Stream input, string fileName, string searchPattern,
+            SearchType searchType, GrepSearchOption searchOptions, Encoding encoding, PauseCancelToken pauseCancelToken);
 
-        bool Replace(string sourceFile, string destinationFile, string searchPattern, string replacePattern, SearchType searchType, 
-            GrepSearchOption searchOptions, Encoding encoding, IEnumerable<GrepMatch> replaceItems);
+        bool Replace(string sourceFile, string destinationFile, string searchPattern, string replacePattern, SearchType searchType,
+            GrepSearchOption searchOptions, Encoding encoding, IEnumerable<GrepMatch> replaceItems, PauseCancelToken pauseCancelToken);
 
         /// <summary>
         /// Method gets called when search/replace process is complete
@@ -59,7 +61,7 @@ namespace dnGREP.Engines
         /// <summary>
         /// Return version of the framework (dgGREP.Engines.dll) that the plugin was compiled against
         /// </summary>
-        Version FrameworkVersion { get; }
+        Version? FrameworkVersion { get; }
 
         /// <summary>
         /// Can be used to provide custom file opening functionality
@@ -67,4 +69,10 @@ namespace dnGREP.Engines
         /// <param name="args"></param>
         void OpenFile(OpenFileArgs args);
     }
+
+    public interface IGrepPluginEngine : IGrepEngine
+    {
+        bool PreviewPlainText { get; set; }
+    }
+
 }

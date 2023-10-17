@@ -1,5 +1,4 @@
 ﻿using System;
-using dnGREP.Everything;
 
 namespace dnGREP.Common
 {
@@ -9,8 +8,12 @@ namespace dnGREP.Common
         {
             Path = ".";
             NamePatternToInclude = "*.*";
+            NamePatternToExclude = string.Empty;
+            IgnoreFilterFile = string.Empty;
             MaxSubfolderDepth = -1;
         }
+
+        public static FileFilter Default => new();
 
         /// <summary>
         /// Stores the file filter parameters 
@@ -32,9 +35,14 @@ namespace dnGREP.Common
         /// <param name="dateFilter">Filter by file modified or created date time range</param>
         /// <param name="startTime">start of time range</param>
         /// <param name="endTime">end of time range</param>
-        public FileFilter(string path, string namePatternToInclude, string namePatternToExclude, bool isRegex, bool useGitignore, bool useEverything,
-            bool includeSubfolders, int maxSbufolderDepth, bool includeHidden, bool includeBinary, bool includeArchive, bool followSymlinks,
-            int sizeFrom, int sizeTo, FileDateFilter dateFilter, DateTime? startTime, DateTime? endTime)
+        /// <param name="skipRemoteCloudStorageFiles">true to skip cloud  directories</param>
+        /// <param name="ignoreFilterFile">File path to a dnGrep ignore file</param>
+        public FileFilter(string path, string namePatternToInclude, string namePatternToExclude, bool isRegex,
+            bool useGitignore, bool useEverything, bool includeSubfolders,
+            int maxSbufolderDepth, bool includeHidden, bool includeBinary, bool includeArchive,
+            bool followSymlinks, int sizeFrom, int sizeTo, FileDateFilter dateFilter,
+            DateTime? startTime, DateTime? endTime, bool skipRemoteCloudStorageFiles = true,
+            string ignoreFilterFile = "")
         {
             Path = path;
             NamePatternToInclude = namePatternToInclude;
@@ -53,6 +61,8 @@ namespace dnGREP.Common
             DateFilter = dateFilter;
             StartTime = startTime;
             EndTime = endTime;
+            SkipRemoteCloudStorageFiles = skipRemoteCloudStorageFiles;
+            IgnoreFilterFile = ignoreFilterFile;
         }
 
         public FileFilter ChangePath(string path)
@@ -88,52 +98,9 @@ namespace dnGREP.Common
                 SizeTo,
                 DateFilter,
                 StartTime,
-                EndTime
-                );
-        }
-
-        public FileFilter ToStandardFilter()
-        {
-            if (!UseEverything)
-                return Clone();
-
-            string folder = EverythingSearch.GetBaseFolder(Path);
-
-            bool isRegex = false;
-            string include = Path.Substring(folder.Length, Path.Length - folder.Length).Trim();
-            if (include.StartsWith("regex:", StringComparison.OrdinalIgnoreCase))
-            {
-                isRegex = true;
-                include = include.Substring("regex:".Length);
-            }
-
-            if (include.Contains("|"))
-            {
-                include = include.Replace('|', ',');
-            }
-
-            // #TODO maybe someday: there are dozens more conversions possible: 
-            // See http://www.voidtools.com/support/everything/searching/
-            // and dnGREP.Everything.EverythingKeywords
-
-            return new FileFilter(
-                folder,
-                include,
-                string.Empty,
-                isRegex,
-                UseGitIgnore,
-                false,
-                IncludeSubfolders,
-                MaxSubfolderDepth,
-                IncludeHidden,
-                IncludeBinary,
-                IncludeArchive,
-                FollowSymlinks,
-                SizeFrom,
-                SizeTo,
-                DateFilter,
-                StartTime,
-                EndTime
+                EndTime,
+                SkipRemoteCloudStorageFiles,
+                IgnoreFilterFile
                 );
         }
 
@@ -141,6 +108,7 @@ namespace dnGREP.Common
         public string NamePatternToInclude { get; private set; }
         public string NamePatternToExclude { get; private set; }
         public bool UseGitIgnore { get; private set; }
+        public string IgnoreFilterFile { get; private set; }
         public bool IsRegex { get; private set; }
         public bool UseEverything { get; private set; }
         public bool IncludeSubfolders { get; private set; }
@@ -154,5 +122,6 @@ namespace dnGREP.Common
         public FileDateFilter DateFilter { get; private set; }
         public DateTime? StartTime { get; private set; }
         public DateTime? EndTime { get; private set; }
+        public bool SkipRemoteCloudStorageFiles { get; private set; }
     }
 }

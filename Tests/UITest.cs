@@ -4,12 +4,8 @@ using System.Windows;
 using System.Windows.Markup;
 using System.Windows.Media;
 using System.Windows.Media.Effects;
+using System.Windows.Media.Imaging;
 using Xunit;
-using Directory = Alphaleonis.Win32.Filesystem.Directory;
-using DirectoryInfo = Alphaleonis.Win32.Filesystem.DirectoryInfo;
-using File = Alphaleonis.Win32.Filesystem.File;
-using FileInfo = Alphaleonis.Win32.Filesystem.FileInfo;
-using Path = Alphaleonis.Win32.Filesystem.Path;
 
 namespace Tests
 {
@@ -20,15 +16,15 @@ namespace Tests
         public void TestDefaultDictionariesMatch()
         {
             string solutionPath = Directory.GetParent(GetDllPath())
-                .Parent.Parent.Parent.FullName;
+                ?.Parent?.Parent?.Parent?.Parent?.FullName ?? string.Empty;
 
             var path1 = Path.Combine(solutionPath, @"dnGREP.WPF\Themes\LightBrushes.xaml");
             var path2 = Path.Combine(solutionPath, @"dnGREP.WPF\Themes\DarkBrushes.xaml");
             Assert.True(File.Exists(path1));
             Assert.True(File.Exists(path2));
 
-            ResourceDictionary dict1 = LoadXaml(path1);
-            ResourceDictionary dict2 = LoadXaml(path2);
+            ResourceDictionary? dict1 = LoadXaml(path1);
+            ResourceDictionary? dict2 = LoadXaml(path2);
 
             Assert.NotNull(dict1);
             Assert.NotNull(dict2);
@@ -48,10 +44,12 @@ namespace Tests
                     Assert.True(value2 is DropShadowEffect);
                 else if (value1 is bool)
                     Assert.True(value2 is bool);
+                else if (value1 is BitmapImage)
+                    Assert.True(value2 is BitmapImage);
             }
         }
 
-        private ResourceDictionary LoadXaml(string path)
+        private ResourceDictionary? LoadXaml(string path)
         {
             using (FileStream s = new FileStream(path, FileMode.Open))
             {

@@ -1,4 +1,4 @@
-﻿using dnGREP.Everything;
+﻿using dnGREP.Common.UI;
 
 namespace dnGREP.Common
 {
@@ -8,7 +8,7 @@ namespace dnGREP.Common
     /// </summary>
     public class PathSearchText
     {
-        private string fileOrFolderPath;
+        private string fileOrFolderPath = string.Empty;
         /// <summary>
         /// Gets or sets the raw text entered in the Folder text box
         /// </summary>
@@ -20,7 +20,7 @@ namespace dnGREP.Common
                 if (value == fileOrFolderPath)
                     return;
 
-                baseFolder = null;
+                baseFolder = string.Empty;
                 isValidPath = null;
                 fileOrFolderPath = value;
             }
@@ -36,7 +36,7 @@ namespace dnGREP.Common
             return $"{FileOrFolderPath} - {TypeOfFileSearch}";
         }
 
-        private string baseFolder;
+        private string baseFolder = string.Empty;
         /// <summary>
         /// Gets the base folder of one or many files or folders. 
         /// If the FileOrFolderPath contains multiple paths, it returns the first one.
@@ -45,29 +45,19 @@ namespace dnGREP.Common
         {
             get
             {
-                if (baseFolder == null)
+                if (string.IsNullOrEmpty(baseFolder))
                 {
                     if (TypeOfFileSearch == FileSearchType.Everything)
-                        baseFolder = EverythingSearch.GetBaseFolder(FileOrFolderPath);
+                    {
+                        string path = UiUtils.CleanPath(FileOrFolderPath).Replace('|', ';');
+                        baseFolder = UiUtils.GetBaseFolder(path);
+                    }
                     else
-                        baseFolder = Utils.GetBaseFolder(FileOrFolderPath);
+                    {
+                        baseFolder = UiUtils.GetBaseFolder(FileOrFolderPath);
+                    }
                 }
                 return baseFolder;
-            }
-        }
-
-        /// <summary>
-        /// Gets the search text part of the string, following the base folder
-        /// </summary>
-        public string FilePattern
-        {
-            get
-            {
-                if (TypeOfFileSearch == FileSearchType.Everything)
-                {
-                    return EverythingSearch.GetFilePattern(FileOrFolderPath);
-                }
-                return string.Empty;
             }
         }
 
@@ -84,7 +74,7 @@ namespace dnGREP.Common
                     if (TypeOfFileSearch == FileSearchType.Everything)
                         isValidPath = !string.IsNullOrWhiteSpace(FileOrFolderPath);
                     else
-                        isValidPath = !string.IsNullOrWhiteSpace(FileOrFolderPath) && 
+                        isValidPath = !string.IsNullOrWhiteSpace(FileOrFolderPath) &&
                             Utils.IsPathValid(fileOrFolderPath);
                 }
                 return isValidPath.Value;

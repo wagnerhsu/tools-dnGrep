@@ -1,9 +1,8 @@
 using System;
 using System.Collections.Generic;
 using System.Globalization;
+using System.IO;
 using System.Reflection;
-using System.Text;
-using Alphaleonis.Win32.Filesystem;
 using dnGREP.Common;
 using NLog;
 
@@ -13,15 +12,17 @@ namespace dnGREP.Engines
     {
         private static readonly Logger logger = LogManager.GetCurrentClassLogger();
         private readonly IDictionary<string, Assembly> loadedAssemblies = new Dictionary<string, Assembly>();
-        private Type pluginType;
+        private Type? pluginType;
 
-        public IGrepEngine CreateEngine()
+        public IGrepEngine? CreateEngine()
         {
-            IGrepEngine engine = null;
+            IGrepEngine? engine = null;
             try
             {
                 if (pluginType != null)
-                    engine = (IGrepEngine)Activator.CreateInstance(pluginType);
+                {
+                    engine = Activator.CreateInstance(pluginType) as IGrepEngine;
+                }
             }
             catch (Exception ex)
             {
@@ -30,7 +31,7 @@ namespace dnGREP.Engines
             return engine;
         }
 
-        public string Name { get; private set; }
+        public string Name { get; private set; } = string.Empty;
 
         public List<string> DefaultExtensions { get; private set; }
 
@@ -39,12 +40,12 @@ namespace dnGREP.Engines
         /// <summary>
         /// Gets the name of the IGrepEngine type
         /// </summary>
-        public string PluginName { get; private set; }
+        public string PluginName { get; private set; } = string.Empty;
 
         /// <summary>
         /// Absolute path to DLL file
         /// </summary>
-        public string DllFilePath { get; private set; }
+        public string DllFilePath { get; private set; } = string.Empty;
 
         /// <summary>
         /// Absolute path to plugin file
@@ -57,14 +58,16 @@ namespace dnGREP.Engines
         public bool Enabled { get; private set; }
 
         /// <summary>
+        /// Gets a flag indicating if this plugin should create a temporary plain text file for the Preview window
+        /// </summary>
+        public bool PreviewPlainText { get; private set; }
+
+        /// <summary>
         /// Returns true if engine supports search only. Returns false is engine supports replace as well.
         /// </summary>
         public bool IsSearchOnly { get; private set; }
 
-        public Version FrameworkVersion
-        {
-            get { return Assembly.GetAssembly(pluginType).GetName().Version; }
-        }
+        public Version? FrameworkVersion => pluginType != null ? Assembly.GetAssembly(pluginType)?.GetName()?.Version : null;
 
         public GrepPlugin(string pluginFilePath)
         {
@@ -77,7 +80,7 @@ namespace dnGREP.Engines
         public bool LoadPluginSettings()
         {
             bool result = false;
-            if (PluginFilePath != null && File.Exists(PluginFilePath))
+            if (File.Exists(PluginFilePath))
             {
                 try
                 {
@@ -100,7 +103,10 @@ namespace dnGREP.Engines
 
                     string tempDllFilePath = DllFilePath;
                     if (!File.Exists(tempDllFilePath))
-                        DllFilePath = Path.Combine(Path.GetDirectoryName(PluginFilePath), tempDllFilePath);
+                    {
+                        DllFilePath = Path.Combine(
+                            Path.GetDirectoryName(PluginFilePath) ?? string.Empty, tempDllFilePath);
+                    }
 
                     if (File.Exists(DllFilePath))
                     {
@@ -116,7 +122,7 @@ namespace dnGREP.Engines
                         }
                     }
 
-                    IList<string> defaultExtensions = null;
+                    IList<string>? defaultExtensions = null;
                     if (pluginType != null)
                     {
                         PluginName = pluginType.Name;
@@ -132,14 +138,15 @@ namespace dnGREP.Engines
                     }
 
                     GetEnabledFromSettings(Name);
-
-                    GetExtensionsFromSettings(Name, defaultExtensions);
+                    GetPreviewPlainTextFromSettings(Name);
+                    GetExtensionsFromSettings(Name, defaultExtensions ?? new List<string>());
 
                     result = pluginType != null;
                 }
                 catch (Exception ex)
                 {
-                    throw ex;
+                    logger.Error(ex);
+                    throw;
                 }
             }
             return result;
@@ -156,53 +163,31 @@ namespace dnGREP.Engines
             }
         }
 
-        private void GetExtensionsFromSettings(string name, IList<string> defaultExtensions)
+        private void GetPreviewPlainTextFromSettings(string name)
         {
-            DefaultExtensions.Clear();
-            Extensions.Clear();
-            if (defaultExtensions != null)
-            {
-                DefaultExtensions.AddRange(defaultExtensions);
-                Extensions.AddRange(defaultExtensions);
-            }
-
+            PreviewPlainText = true;
             if (!string.IsNullOrEmpty(name))
             {
-                string addKey = "Add" + CultureInfo.InvariantCulture.TextInfo.ToTitleCase(name) + "Extensions";
-                string remKey = "Rem" + CultureInfo.InvariantCulture.TextInfo.ToTitleCase(name) + "Extensions";
-
-                if (GrepSettings.Instance.ContainsKey(addKey))
-                {
-                    string csv = GrepSettings.Instance.Get<string>(addKey).Trim();
-                    if (!string.IsNullOrWhiteSpace(csv))
-                    {
-                        foreach (string extension in csv.Split(','))
-                        {
-                            var ext = extension.Trim().ToLower();
-                            Extensions.Add(ext);
-                        }
-                    }
-                }
-
-                if (GrepSettings.Instance.ContainsKey(remKey))
-                {
-                    string csv = GrepSettings.Instance.Get<string>(remKey).Trim();
-                    if (!string.IsNullOrWhiteSpace(csv))
-                    {
-                        foreach (string extension in csv.Split(','))
-                        {
-                            var ext = extension.Trim().ToLower();
-                            if (Extensions.Contains(ext))
-                                Extensions.Remove(ext);
-                        }
-                    }
-                }
+                string key = CultureInfo.InvariantCulture.TextInfo.ToTitleCase(name) + "PreviewText";
+                if (GrepSettings.Instance.ContainsKey(key))
+                    PreviewPlainText = GrepSettings.Instance.Get<bool>(key);
             }
         }
 
-        private Assembly CurrentDomain_AssemblyResolve(object sender, ResolveEventArgs args)
+        private void GetExtensionsFromSettings(string name, IList<string> defaultExtensions)
         {
-            Assembly assembly = null;
+            var list = GrepSettings.Instance.GetExtensionList(name, defaultExtensions);
+
+            DefaultExtensions.Clear();
+            Extensions.Clear();
+
+            DefaultExtensions.AddRange(defaultExtensions);
+            Extensions.AddRange(list);
+        }
+
+        private Assembly? CurrentDomain_AssemblyResolve(object? sender, ResolveEventArgs args)
+        {
+            Assembly? assembly = null;
 
             if (loadedAssemblies.ContainsKey(args.Name))
             {
@@ -212,7 +197,8 @@ namespace dnGREP.Engines
             {
                 var name = new AssemblyName(args.Name).Name + ".dll";
 
-                var filePath = Path.Combine(Path.GetDirectoryName(PluginFilePath), Path.GetDirectoryName(DllFilePath), name);
+                var filePath = Path.Combine(Path.GetDirectoryName(PluginFilePath) ?? string.Empty, 
+                    Path.GetDirectoryName(DllFilePath) ?? string.Empty, name);
                 if (File.Exists(filePath))
                 {
                     assembly = Assembly.LoadFile(filePath);

@@ -1,10 +1,14 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
+using System.ComponentModel;
+using System.Diagnostics.CodeAnalysis;
+using System.IO;
 using System.Linq;
 using System.Windows;
 using System.Windows.Data;
 using System.Windows.Input;
+using CommunityToolkit.Mvvm.ComponentModel;
 using dnGREP.Common;
 using dnGREP.Everything;
 using dnGREP.Localization;
@@ -12,55 +16,58 @@ using Resources = dnGREP.Localization.Properties.Resources;
 
 namespace dnGREP.WPF
 {
-    public class BookmarkListViewModel : CultureAwareViewModel
+    public partial class BookmarkListViewModel : CultureAwareViewModel
     {
-        readonly Action<Bookmark> ClearStar;
-        readonly Window ownerWnd;
+        public event EventHandler<DataEventArgs<int>>? SetFocus;
+
+        private readonly Action<Bookmark> ClearStar;
+        private readonly Window ownerWnd;
+        private readonly List<BookmarkViewModel> _bookmarks;
+        private bool _isDirty;
 
         public BookmarkListViewModel(Window owner, Action<Bookmark> clearStar)
         {
             ownerWnd = owner;
             ClearStar = clearStar;
 
-            var items = BookmarkLibrary.Instance.Bookmarks.Select(bk => new BookmarkViewModel(bk)).ToList();
-            Bookmarks = new ListCollectionView(items)
-            {
-                Filter = BookmarkFilter
-            };
+            _bookmarks = new List<BookmarkViewModel>();
+            SynchToLibrary();
 
             ApplicationFontFamily = GrepSettings.Instance.Get<string>(GrepSettings.Key.ApplicationFontFamily);
             DialogFontSize = GrepSettings.Instance.Get<double>(GrepSettings.Key.DialogFontSize);
+            IsPinned = GrepSettings.Instance.Get<bool>(GrepSettings.Key.PinBookmarkWindow);
         }
 
-        private string applicationFontFamily;
-        public string ApplicationFontFamily
+        [MemberNotNull(nameof(Bookmarks))]
+        public void SynchToLibrary()
         {
-            get { return applicationFontFamily; }
-            set
-            {
-                if (applicationFontFamily == value)
-                    return;
+            _bookmarks.Clear();
+            _bookmarks.AddRange(BookmarkLibrary.Instance.Bookmarks
+                .OrderBy(bk => bk.Ordinal)
+                .Select(bk => new BookmarkViewModel(bk)));
+            Bookmarks = CollectionViewSource.GetDefaultView(_bookmarks);
+            Bookmarks.Filter = BookmarkFilter;
+        }
 
-                applicationFontFamily = value;
-                base.OnPropertyChanged(() => ApplicationFontFamily);
+        public void Sort()
+        {
+            _bookmarks.Sort((x, y) => x.Ordinal.CompareTo(y.Ordinal));
+        }
+
+        internal void BookmarksWindow_Hiding()
+        {
+            GrepSettings.Instance.Set(GrepSettings.Key.PinBookmarkWindow, IsPinned);
+
+            if (_isDirty)
+            {
+                foreach (BookmarkViewModel bk in _bookmarks)
+                {
+                    bk.PushOrdinalUpdate();
+                }
+                BookmarkLibrary.Instance.Sort();
+                BookmarkLibrary.Save();
             }
         }
-
-        private double dialogfontSize;
-        public double DialogFontSize
-        {
-            get { return dialogfontSize; }
-            set
-            {
-                if (dialogfontSize == value)
-                    return;
-
-                dialogfontSize = value;
-                base.OnPropertyChanged(() => DialogFontSize);
-            }
-        }
-
-        public ListCollectionView Bookmarks { get; private set; }
 
         private bool BookmarkFilter(object obj)
         {
@@ -72,122 +79,155 @@ namespace dnGREP.WPF
                 }
                 else
                 {
-                    return bmk.Description.IndexOf(FilterText, StringComparison.OrdinalIgnoreCase) >= 0 ||
-                           bmk.SearchFor.IndexOf(FilterText, StringComparison.OrdinalIgnoreCase) >= 0 ||
-                           bmk.ReplaceWith.IndexOf(FilterText, StringComparison.OrdinalIgnoreCase) >= 0 ||
-                           bmk.FilePattern.IndexOf(FilterText, StringComparison.OrdinalIgnoreCase) >= 0;
+                    return bmk.BookmarkName.Contains(FilterText, StringComparison.OrdinalIgnoreCase) ||
+                           bmk.Description.Contains(FilterText, StringComparison.OrdinalIgnoreCase) ||
+                           bmk.SearchFor.Contains(FilterText, StringComparison.OrdinalIgnoreCase) ||
+                           bmk.ReplaceWith.Contains(FilterText, StringComparison.OrdinalIgnoreCase) ||
+                           bmk.FilePattern.Contains(FilterText, StringComparison.OrdinalIgnoreCase);
                 }
             }
             return false;
         }
 
+        public ICollectionView Bookmarks { get; private set; }
+
+        [ObservableProperty]
+        private string applicationFontFamily = SystemFonts.MessageFontFamily.Source;
+
+        [ObservableProperty]
+        private double dialogFontSize;
+
+        [ObservableProperty]
+        private bool isPinned = false;
+
+        [ObservableProperty]
         private string filterText = string.Empty;
-        public string FilterText
+        partial void OnFilterTextChanged(string value)
         {
-            get { return filterText; }
-            set
-            {
-                if (filterText == value)
-                    return;
-
-                filterText = value;
-                OnPropertyChanged(nameof(FilterText));
-
-                Bookmarks.Refresh();
-            }
+            Bookmarks.Refresh();
         }
 
-        private BookmarkViewModel selectedBookmark = null;
-        public BookmarkViewModel SelectedBookmark
+        [ObservableProperty]
+        private BookmarkViewModel? selectedBookmark = null;
+        partial void OnSelectedBookmarkChanged(BookmarkViewModel? value)
         {
-            get { return selectedBookmark; }
-            set
-            {
-                if (selectedBookmark == value)
-                    return;
-
-                selectedBookmark = value;
-                OnPropertyChanged(nameof(SelectedBookmark));
-
-                HasSelection = selectedBookmark != null;
-            }
+            HasSelection = value != null;
         }
 
+        [ObservableProperty]
         private bool hasSelection = false;
-        public bool HasSelection
-        {
-            get { return hasSelection; }
-            set
-            {
-                if (hasSelection == value)
-                    return;
 
-                hasSelection = value;
-                OnPropertyChanged(nameof(HasSelection));
+
+        public ICommand AddCommand => new RelayCommand(
+            param => AddBookmark());
+
+        public ICommand EditCommand => new RelayCommand(
+            param => Edit(),
+            param => SelectedBookmark != null);
+
+        public ICommand DuplicateCommand => new RelayCommand(
+            param => Duplicate(),
+            param => SelectedBookmark != null);
+
+        public ICommand DeleteCommand => new RelayCommand(
+            param => Delete(),
+            param => SelectedBookmark != null);
+
+        public ICommand MoveToTopCommand => new RelayCommand(
+            p => MoveToTop(),
+            q => SelectedBookmark != null && SelectedBookmark.Ordinal > 0);
+
+        public ICommand MoveUpCommand => new RelayCommand(
+            p => MoveUp(),
+            q => SelectedBookmark != null && SelectedBookmark.Ordinal > 0);
+
+        public ICommand MoveDownCommand => new RelayCommand(
+            p => MoveDown(),
+            q => SelectedBookmark != null && SelectedBookmark.Ordinal < _bookmarks.Count - 1);
+
+        public ICommand MoveToBottomCommand => new RelayCommand(
+            p => MoveToBottom(),
+            q => SelectedBookmark != null && SelectedBookmark.Ordinal < _bookmarks.Count - 1);
+
+        private void UpdateOrder()
+        {
+            _isDirty = true;
+            Sort();
+            Bookmarks.Refresh();
+            if (SelectedBookmark != null)
+            {
+                int idx = _bookmarks.IndexOf(SelectedBookmark);
+                SetFocus?.Invoke(this, new DataEventArgs<int>(idx));
             }
         }
 
-
-        RelayCommand _addCommand;
-        public ICommand AddCommand
+        private void MoveToTop()
         {
-            get
+            if (SelectedBookmark != null)
             {
-                if (_addCommand == null)
+                int idx = SelectedBookmark.Ordinal;
+                if (idx > 0)
                 {
-                    _addCommand = new RelayCommand(
-                        param => AddBookmark()
-                        );
+                    SelectedBookmark.Ordinal = 0;
+                    foreach (BookmarkViewModel item in Bookmarks)
+                    {
+                        if (item != SelectedBookmark && item.Ordinal < idx)
+                        {
+                            item.Ordinal++;
+                        }
+                    }
+                    UpdateOrder();
                 }
-                return _addCommand;
             }
         }
 
-        RelayCommand _editCommand;
-        public ICommand EditCommand
+        private void MoveUp()
         {
-            get
+            if (SelectedBookmark != null)
             {
-                if (_editCommand == null)
+                int idx = SelectedBookmark.Ordinal;
+                if (idx > 0)
                 {
-                    _editCommand = new RelayCommand(
-                        param => Edit(),
-                        param => SelectedBookmark != null
-                        );
+                    var prev = _bookmarks.Where(b => b.Ordinal == idx - 1).First();
+                    SelectedBookmark.Ordinal = prev.Ordinal;
+                    prev.Ordinal = idx;
+                    UpdateOrder();
                 }
-                return _editCommand;
             }
         }
 
-        RelayCommand _duplicateCommand;
-        public ICommand DuplicateCommand
+        private void MoveDown()
         {
-            get
+            if (SelectedBookmark != null)
             {
-                if (_duplicateCommand == null)
+                int idx = SelectedBookmark.Ordinal;
+                if (idx < _bookmarks.Count - 1)
                 {
-                    _duplicateCommand = new RelayCommand(
-                        param => Duplicate(),
-                        param => SelectedBookmark != null
-                        );
+                    var next = _bookmarks.Where(b => b.Ordinal == idx + 1).First();
+                    SelectedBookmark.Ordinal = next.Ordinal;
+                    next.Ordinal = idx;
+                    UpdateOrder();
                 }
-                return _duplicateCommand;
             }
         }
 
-        RelayCommand _deleteCommand;
-        public ICommand DeleteCommand
+        private void MoveToBottom()
         {
-            get
+            if (SelectedBookmark != null)
             {
-                if (_deleteCommand == null)
+                int idx = SelectedBookmark.Ordinal;
+                if (idx < _bookmarks.Count - 1)
                 {
-                    _deleteCommand = new RelayCommand(
-                        param => Delete(),
-                        param => SelectedBookmark != null
-                        );
+                    SelectedBookmark.Ordinal = _bookmarks.Count - 1;
+                    foreach (BookmarkViewModel item in Bookmarks)
+                    {
+                        if (item != SelectedBookmark && item.Ordinal > idx)
+                        {
+                            item.Ordinal--;
+                        }
+                    }
+                    UpdateOrder();
                 }
-                return _deleteCommand;
             }
         }
 
@@ -197,14 +237,30 @@ namespace dnGREP.WPF
             {
                 ClearStar(SelectedBookmark.ToBookmark());
 
-                var bmk = BookmarkLibrary.Instance.Find(SelectedBookmark.ToBookmark());
+                var bmk = BookmarkLibrary.Instance.Get(SelectedBookmark.Id);
                 if (bmk != null)
                 {
-                    BookmarkLibrary.Instance.Bookmarks.Remove(bmk);
-                    BookmarkLibrary.Save();
+                    _bookmarks.Remove(SelectedBookmark);
+                    UpdateOrdinals();
 
-                    Bookmarks.Remove(SelectedBookmark);
+                    BookmarkLibrary.Instance.Bookmarks.Remove(bmk);
+                    foreach (BookmarkViewModel bk in _bookmarks)
+                    {
+                        bk.PushOrdinalUpdate();
+                    }
+                    BookmarkLibrary.Instance.Sort();
+                    BookmarkLibrary.Save();
+                    Bookmarks.Refresh();
                 }
+            }
+        }
+
+        private void UpdateOrdinals()
+        {
+            int idx = 0;
+            foreach (BookmarkViewModel bmk in _bookmarks)
+            {
+                bmk.Ordinal = idx++;
             }
         }
 
@@ -224,6 +280,7 @@ namespace dnGREP.WPF
                 var result = dlg.ShowDialog();
                 if (result.HasValue && result.Value)
                 {
+                    editBmk.UpdateSectionIndex();
                     editBmk.SetExtendedProperties();
 
                     if (SelectedBookmark != editBmk)
@@ -231,19 +288,30 @@ namespace dnGREP.WPF
                         ClearStar(SelectedBookmark.ToBookmark());
                     }
 
+                    string id = SelectedBookmark.Id;
                     var bmk = BookmarkLibrary.Instance.Find(SelectedBookmark.ToBookmark());
                     if (bmk != null)
                     {
                         BookmarkLibrary.Instance.Bookmarks.Remove(bmk);
-                        Bookmarks.Remove(SelectedBookmark);
+
+                        _bookmarks.Remove(SelectedBookmark);
+                        _bookmarks.Add(editBmk);
+                        SelectedBookmark = null; // two steps to change selected because of bookmark equality
+                        SelectedBookmark = editBmk;
+                        UpdateOrder();
                     }
 
-                    var newBmk = new Bookmark(editBmk.SearchFor, editBmk.ReplaceWith, editBmk.FilePattern)
+                    var newBmk = new Bookmark(id)
                     {
+                        BookmarkName = editBmk.BookmarkName,
+                        Ordinal = editBmk.Ordinal,
                         Description = editBmk.Description,
-                        IgnoreFilePattern = editBmk.IgnoreFilePattern,
                         TypeOfFileSearch = editBmk.TypeOfFileSearch,
+                        FileNames = editBmk.FilePattern,
+                        IgnoreFilePattern = editBmk.IgnoreFilePattern,
                         TypeOfSearch = editBmk.TypeOfSearch,
+                        SearchPattern = editBmk.SearchFor,
+                        ReplacePattern = editBmk.ReplaceWith,
                         CaseSensitive = editBmk.CaseSensitive,
                         WholeWord = editBmk.WholeWord,
                         Multiline = editBmk.Multiline,
@@ -254,17 +322,21 @@ namespace dnGREP.WPF
                         IncludeHiddenFiles = editBmk.IncludeHidden,
                         IncludeBinaryFiles = editBmk.IncludeBinary,
                         UseGitignore = editBmk.UseGitignore,
+                        IgnoreFilterName = editBmk.IgnoreFilterName,
+                        SkipRemoteCloudStorageFiles = editBmk.SkipRemoteCloudStorageFiles,
                         IncludeArchive = editBmk.IncludeArchive,
                         FollowSymlinks = editBmk.FollowSymlinks,
                         CodePage = editBmk.CodePage,
+                        ApplyFileSourceFilters = editBmk.ApplyFileSourceFilters,
+                        ApplyFilePropertyFilters = editBmk.ApplyFilePropertyFilters,
+                        ApplyContentSearchFilters = editBmk.ApplyContentSearchFilters,
                     };
                     string[] paths = editBmk.PathReferences.Split(new char[] { '\n', '\r' }, StringSplitOptions.RemoveEmptyEntries);
                     newBmk.FolderReferences.AddRange(paths);
+
                     BookmarkLibrary.Instance.Bookmarks.Add(newBmk);
+                    BookmarkLibrary.Instance.Sort();
                     BookmarkLibrary.Save();
-                    Bookmarks.AddNewItem(editBmk);
-                    Bookmarks.CommitNew();
-                    SelectedBookmark = editBmk;
                 }
             }
         }
@@ -284,14 +356,27 @@ namespace dnGREP.WPF
                 var result = dlg.ShowDialog();
                 if (result.HasValue && result.Value)
                 {
+                    duplicateBmk.UpdateSectionIndex();
                     duplicateBmk.SetExtendedProperties();
+                    duplicateBmk.Ordinal = BookmarkLibrary.Instance.Bookmarks.Count;
 
-                    var newBmk = new Bookmark(duplicateBmk.SearchFor, duplicateBmk.ReplaceWith, duplicateBmk.FilePattern)
+                    _bookmarks.Add(duplicateBmk);
+                    SelectedBookmark = null; // two steps to change selected because of bookmark equality
+                    SelectedBookmark = duplicateBmk;
+                    Bookmarks.MoveCurrentToLast();
+                    UpdateOrder();
+
+                    var newBmk = new Bookmark()
                     {
+                        BookmarkName = duplicateBmk.BookmarkName,
+                        Ordinal = duplicateBmk.Ordinal,
                         Description = duplicateBmk.Description,
-                        IgnoreFilePattern = duplicateBmk.IgnoreFilePattern,
                         TypeOfFileSearch = duplicateBmk.TypeOfFileSearch,
+                        FileNames = duplicateBmk.FilePattern,
+                        IgnoreFilePattern = duplicateBmk.IgnoreFilePattern,
                         TypeOfSearch = duplicateBmk.TypeOfSearch,
+                        SearchPattern = duplicateBmk.SearchFor,
+                        ReplacePattern = duplicateBmk.ReplaceWith,
                         CaseSensitive = duplicateBmk.CaseSensitive,
                         WholeWord = duplicateBmk.WholeWord,
                         Multiline = duplicateBmk.Multiline,
@@ -302,15 +387,21 @@ namespace dnGREP.WPF
                         IncludeHiddenFiles = duplicateBmk.IncludeHidden,
                         IncludeBinaryFiles = duplicateBmk.IncludeBinary,
                         UseGitignore = duplicateBmk.UseGitignore,
+                        IgnoreFilterName = duplicateBmk.IgnoreFilterName,
+                        SkipRemoteCloudStorageFiles = duplicateBmk.SkipRemoteCloudStorageFiles,
                         IncludeArchive = duplicateBmk.IncludeArchive,
                         FollowSymlinks = duplicateBmk.FollowSymlinks,
                         CodePage = duplicateBmk.CodePage,
+                        ApplyFileSourceFilters = duplicateBmk.ApplyFileSourceFilters,
+                        ApplyFilePropertyFilters = duplicateBmk.ApplyFilePropertyFilters,
+                        ApplyContentSearchFilters = duplicateBmk.ApplyContentSearchFilters,
                     };
+
+                    duplicateBmk.Id = newBmk.Id;
+
                     BookmarkLibrary.Instance.Bookmarks.Add(newBmk);
+                    BookmarkLibrary.Instance.Sort();
                     BookmarkLibrary.Save();
-                    Bookmarks.AddNewItem(duplicateBmk);
-                    Bookmarks.CommitNew();
-                    SelectedBookmark = duplicateBmk;
                 }
             }
         }
@@ -327,14 +418,26 @@ namespace dnGREP.WPF
             var result = dlg.ShowDialog();
             if (result.HasValue && result.Value)
             {
+                editBmk.UpdateSectionIndex();
                 editBmk.SetExtendedProperties();
+                editBmk.Ordinal = BookmarkLibrary.Instance.Bookmarks.Count;
 
-                var newBmk = new Bookmark(editBmk.SearchFor, editBmk.ReplaceWith, editBmk.FilePattern)
+                _bookmarks.Add(editBmk);
+                SelectedBookmark = editBmk;
+                Bookmarks.MoveCurrentToLast();
+                UpdateOrder();
+
+                var newBmk = new Bookmark()
                 {
+                    BookmarkName = editBmk.BookmarkName,
+                    Ordinal = editBmk.Ordinal,
                     Description = editBmk.Description,
-                    IgnoreFilePattern = editBmk.IgnoreFilePattern,
                     TypeOfFileSearch = editBmk.TypeOfFileSearch,
+                    FileNames = editBmk.FilePattern,
+                    IgnoreFilePattern = editBmk.IgnoreFilePattern,
                     TypeOfSearch = editBmk.TypeOfSearch,
+                    SearchPattern = editBmk.SearchFor,
+                    ReplacePattern = editBmk.ReplaceWith,
                     CaseSensitive = editBmk.CaseSensitive,
                     WholeWord = editBmk.WholeWord,
                     Multiline = editBmk.Multiline,
@@ -345,26 +448,32 @@ namespace dnGREP.WPF
                     IncludeHiddenFiles = editBmk.IncludeHidden,
                     IncludeBinaryFiles = editBmk.IncludeBinary,
                     UseGitignore = editBmk.UseGitignore,
+                    IgnoreFilterName = editBmk.IgnoreFilterName,
+                    SkipRemoteCloudStorageFiles = editBmk.SkipRemoteCloudStorageFiles,
                     IncludeArchive = editBmk.IncludeArchive,
                     FollowSymlinks = editBmk.FollowSymlinks,
                     CodePage = editBmk.CodePage,
+                    ApplyFileSourceFilters = editBmk.ApplyFileSourceFilters,
+                    ApplyFilePropertyFilters = editBmk.ApplyFilePropertyFilters,
+                    ApplyContentSearchFilters = editBmk.ApplyContentSearchFilters,
                 };
                 string[] paths = editBmk.PathReferences.Split(new char[] { '\n', '\r' }, StringSplitOptions.RemoveEmptyEntries);
                 newBmk.FolderReferences.AddRange(paths);
+
+                editBmk.Id = newBmk.Id;
+
                 BookmarkLibrary.Instance.Bookmarks.Add(newBmk);
+                BookmarkLibrary.Instance.Sort();
                 BookmarkLibrary.Save();
-                Bookmarks.AddNewItem(editBmk);
-                Bookmarks.CommitNew();
-                SelectedBookmark = editBmk;
             }
         }
     }
 
-    public class BookmarkViewModel : CultureAwareViewModel
+    public partial class BookmarkViewModel : CultureAwareViewModel
     {
-        public static ObservableCollection<KeyValuePair<string, int>> Encodings { get; } = new ObservableCollection<KeyValuePair<string, int>>();
+        public static ObservableCollection<KeyValuePair<string, int>> Encodings { get; } = new();
 
-        private Bookmark _original;
+        private Bookmark? _original;
 
         public void SetEditMode(Bookmark original)
         {
@@ -375,6 +484,10 @@ namespace dnGREP.WPF
         {
             IsEverythingAvailable = EverythingSearch.IsAvailable;
             IsGitInstalled = Utils.IsGitInstalled;
+
+            Id = bk.Id;
+            BookmarkName = bk.BookmarkName;
+            Ordinal = bk.Ordinal;
 
             Description = bk.Description;
             FilePattern = bk.FileNames;
@@ -395,14 +508,24 @@ namespace dnGREP.WPF
             IncludeSubfolders = bk.IncludeSubfolders;
             MaxSubfolderDepth = bk.MaxSubfolderDepth;
             UseGitignore = bk.UseGitignore;
+            IgnoreFilterName = bk.IgnoreFilterName;
+            SkipRemoteCloudStorageFiles = bk.SkipRemoteCloudStorageFiles;
             IncludeArchive = bk.IncludeArchive;
             FollowSymlinks = bk.FollowSymlinks;
             CodePage = bk.CodePage;
             PathReferences = string.Join(Environment.NewLine, bk.FolderReferences);
 
+            ApplyFileSourceFilters = bk.ApplyFileSourceFilters;
+            ApplyFilePropertyFilters = bk.ApplyFilePropertyFilters;
+            ApplyContentSearchFilters = bk.ApplyContentSearchFilters;
+
+            UpdateSectionIndex();
+
             UpdateTypeOfSearchState();
 
             SetExtendedProperties();
+
+            PopulateIgnoreFilters();
 
             ApplicationFontFamily = GrepSettings.Instance.Get<string>(GrepSettings.Key.ApplicationFontFamily);
             DialogFontSize = GrepSettings.Instance.Get<double>(GrepSettings.Key.DialogFontSize);
@@ -412,6 +535,10 @@ namespace dnGREP.WPF
         {
             IsEverythingAvailable = EverythingSearch.IsAvailable;
             IsGitInstalled = Utils.IsGitInstalled;
+
+            Id = toCopy.Id;
+            BookmarkName = toCopy.BookmarkName;
+            Ordinal = toCopy.Ordinal;
 
             Description = toCopy.Description;
             FilePattern = toCopy.FilePattern;
@@ -427,6 +554,8 @@ namespace dnGREP.WPF
             IncludeSubfolders = toCopy.IncludeSubfolders;
             MaxSubfolderDepth = toCopy.MaxSubfolderDepth;
             UseGitignore = toCopy.UseGitignore;
+            IgnoreFilterName = toCopy.IgnoreFilterName;
+            SkipRemoteCloudStorageFiles = toCopy.SkipRemoteCloudStorageFiles;
             IncludeArchive = toCopy.IncludeArchive;
             FollowSymlinks = toCopy.FollowSymlinks;
             CodePage = toCopy.CodePage;
@@ -447,33 +576,61 @@ namespace dnGREP.WPF
             BooleanOperators = toCopy.BooleanOperators;
             IsBooleanOperatorsEnabled = toCopy.IsBooleanOperatorsEnabled;
 
+            ApplyFileSourceFilters = toCopy.ApplyFileSourceFilters;
+            ApplyFilePropertyFilters = toCopy.ApplyFilePropertyFilters;
+            ApplyContentSearchFilters = toCopy.ApplyContentSearchFilters;
+
+            UpdateSectionIndex();
             SetExtendedProperties();
+
+            PopulateIgnoreFilters();
 
             ApplicationFontFamily = GrepSettings.Instance.Get<string>(GrepSettings.Key.ApplicationFontFamily);
             DialogFontSize = GrepSettings.Instance.Get<double>(GrepSettings.Key.DialogFontSize);
         }
 
+        internal void PushOrdinalUpdate()
+        {
+            Bookmark? bk = BookmarkLibrary.Instance.Get(Id);
+            if (bk != null)
+            {
+                bk.Ordinal = Ordinal;
+            }
+        }
+
         internal void SetExtendedProperties()
         {
             var tempList = new List<string>();
-            if (IncludeArchive)
-                tempList.Add(Resources.Bookmarks_Summary_SearchInArchives);
-            if (!IncludeSubfolders || (IncludeSubfolders && MaxSubfolderDepth == 0))
-                tempList.Add(Resources.Bookmarks_Summary_NoSubfolders);
-            if (IncludeSubfolders && MaxSubfolderDepth > 0)
-                tempList.Add(TranslationSource.Format(Resources.Bookmarks_Summary_MaxFolderDepth, MaxSubfolderDepth));
-            if (!IncludeHidden)
-                tempList.Add(Resources.Bookmarks_Summary_NoHidden);
-            if (!IncludeBinary)
-                tempList.Add(Resources.Bookmarks_Summary_NoBinary);
-            if (!FollowSymlinks)
-                tempList.Add(Resources.Bookmarks_Summary_NoSymlinks);
-            if (CaseSensitive)
-                tempList.Add(Resources.Bookmarks_Summary_CaseSensitive);
-            if (WholeWord)
-                tempList.Add(Resources.Bookmarks_Summary_WholeWord);
-            if (Multiline)
-                tempList.Add(Resources.Bookmarks_Summary_Multiline);
+
+            if (ApplyFileSourceFilters)
+            {
+                if (IncludeArchive)
+                    tempList.Add(Resources.Bookmarks_Summary_SearchInArchives);
+            }
+
+            if (ApplyFilePropertyFilters)
+            {
+                if (!IncludeSubfolders || (IncludeSubfolders && MaxSubfolderDepth == 0))
+                    tempList.Add(Resources.Bookmarks_Summary_NoSubfolders);
+                if (IncludeSubfolders && MaxSubfolderDepth > 0)
+                    tempList.Add(TranslationSource.Format(Resources.Bookmarks_Summary_MaxFolderDepth, MaxSubfolderDepth));
+                if (!IncludeHidden)
+                    tempList.Add(Resources.Bookmarks_Summary_NoHidden);
+                if (!IncludeBinary)
+                    tempList.Add(Resources.Bookmarks_Summary_NoBinary);
+                if (!FollowSymlinks)
+                    tempList.Add(Resources.Bookmarks_Summary_NoSymlinks);
+            }
+
+            if (ApplyContentSearchFilters)
+            {
+                if (CaseSensitive)
+                    tempList.Add(Resources.Bookmarks_Summary_CaseSensitive);
+                if (WholeWord)
+                    tempList.Add(Resources.Bookmarks_Summary_WholeWord);
+                if (Multiline)
+                    tempList.Add(Resources.Bookmarks_Summary_Multiline);
+            }
 
             if (tempList.Count == 0)
             {
@@ -487,12 +644,17 @@ namespace dnGREP.WPF
 
         public Bookmark ToBookmark()
         {
-            return new Bookmark(SearchFor, ReplaceWith, FilePattern)
+            return new Bookmark(Id)
             {
+                BookmarkName = BookmarkName,
+                Ordinal = Ordinal,
                 Description = Description,
+                FileNames = FilePattern,
                 IgnoreFilePattern = IgnoreFilePattern,
                 TypeOfFileSearch = TypeOfFileSearch,
                 TypeOfSearch = TypeOfSearch,
+                SearchPattern = SearchFor,
+                ReplacePattern = ReplaceWith,
                 CaseSensitive = CaseSensitive,
                 WholeWord = WholeWord,
                 Multiline = Multiline,
@@ -503,10 +665,15 @@ namespace dnGREP.WPF
                 IncludeBinaryFiles = IncludeBinary,
                 MaxSubfolderDepth = MaxSubfolderDepth,
                 UseGitignore = UseGitignore,
+                IgnoreFilterName = IgnoreFilterName,
+                SkipRemoteCloudStorageFiles = SkipRemoteCloudStorageFiles,
                 IncludeArchive = IncludeArchive,
                 FollowSymlinks = FollowSymlinks,
                 CodePage = CodePage,
-                FolderReferences = PathReferences.Split(new char[] { '\n', '\r'}, StringSplitOptions.RemoveEmptyEntries).ToList()
+                ApplyFileSourceFilters = ApplyFileSourceFilters,
+                ApplyFilePropertyFilters = ApplyFilePropertyFilters,
+                ApplyContentSearchFilters = ApplyContentSearchFilters,
+                FolderReferences = PathReferences.Split(new char[] { '\n', '\r' }, StringSplitOptions.RemoveEmptyEntries).ToList()
             };
         }
 
@@ -547,499 +714,255 @@ namespace dnGREP.WPF
             }
         }
 
-
-        private string applicationFontFamily;
-        public string ApplicationFontFamily
+        private void PopulateIgnoreFilters()
         {
-            get { return applicationFontFamily; }
-            set
-            {
-                if (applicationFontFamily == value)
-                    return;
+            var selectedFilter = IgnoreFilterName;
 
-                applicationFontFamily = value;
-                base.OnPropertyChanged(() => ApplicationFontFamily);
+            if (IgnoreFilterList.Count == 0)
+            {
+                IgnoreFilterList.Add(string.Empty);
+            }
+            else
+            {
+                IgnoreFilterName = string.Empty;
+                // do not empty the list: the IgnoreFilterName will be set to null
+                while (IgnoreFilterList.Count > 1)
+                {
+                    IgnoreFilterList.RemoveAt(IgnoreFilterList.Count - 1);
+                }
+            }
+
+            string dataFolder = Path.Combine(Utils.GetDataFolderPath(), MainViewModel.IgnoreFilterFolder);
+            if (!Directory.Exists(dataFolder))
+            {
+                Directory.CreateDirectory(dataFolder);
+            }
+
+            HashSet<string> names = new();
+            foreach (string fileName in Directory.GetFiles(dataFolder, "*.ignore", SearchOption.AllDirectories))
+            {
+                string name = Path.GetFileNameWithoutExtension(fileName);
+
+                if (!names.Contains(name))
+                {
+                    IgnoreFilterList.Add(name);
+                }
+            }
+
+            if (!string.IsNullOrEmpty(selectedFilter))
+            {
+                var filter = IgnoreFilterList.FirstOrDefault(f => f.Equals(selectedFilter, StringComparison.OrdinalIgnoreCase));
+                if (filter != null)
+                {
+                    IgnoreFilterName = filter;
+                }
             }
         }
 
-        private double dialogfontSize;
-        public double DialogFontSize
-        {
-            get { return dialogfontSize; }
-            set
-            {
-                if (dialogfontSize == value)
-                    return;
+        #region Properties
 
-                dialogfontSize = value;
-                base.OnPropertyChanged(() => DialogFontSize);
-            }
-        }
+        public string Id { get; set; }
 
+        [ObservableProperty]
+        private string bookmarkName = string.Empty;
+
+        [ObservableProperty]
+        private int ordinal = 0;
+
+        [ObservableProperty]
+        private string applicationFontFamily = SystemFonts.MessageFontFamily.Source;
+
+        [ObservableProperty]
+        private double dialogFontSize;
+
+        [ObservableProperty]
         private string extendedProperties = string.Empty;
-        public string ExtendedProperties
-        {
-            get { return extendedProperties; }
-            set
-            {
-                if (extendedProperties == value)
-                    return;
 
-                extendedProperties = value;
-                OnPropertyChanged(nameof(ExtendedProperties));
-            }
-        }
-
+        [ObservableProperty]
         private string description = string.Empty;
-        public string Description
-        {
-            get { return description; }
-            set
-            {
-                if (description == value)
-                    return;
 
-                description = value;
-                OnPropertyChanged(nameof(Description));
-            }
-        }
-
+        [ObservableProperty]
         private string filePattern = string.Empty;
-        public string FilePattern
-        {
-            get { return filePattern; }
-            set
-            {
-                if (filePattern == value)
-                    return;
 
-                filePattern = value;
-                OnPropertyChanged(nameof(FilePattern));
-            }
-        }
-
+        [ObservableProperty]
         private string searchFor = string.Empty;
-        public string SearchFor
-        {
-            get { return searchFor; }
-            set
-            {
-                if (searchFor == value)
-                    return;
 
-                searchFor = value;
-                OnPropertyChanged(nameof(SearchFor));
-            }
-        }
-
+        [ObservableProperty]
         private string replaceWith = string.Empty;
-        public string ReplaceWith
-        {
-            get { return replaceWith; }
-            set
-            {
-                if (replaceWith == value)
-                    return;
 
-                replaceWith = value;
-                OnPropertyChanged(nameof(ReplaceWith));
-            }
-        }
-
+        [ObservableProperty]
         private string ignoreFilePattern = string.Empty;
-        public string IgnoreFilePattern
-        {
-            get { return ignoreFilePattern; }
-            set
-            {
-                if (ignoreFilePattern == value)
-                    return;
 
-                ignoreFilePattern = value;
-                OnPropertyChanged(nameof(IgnoreFilePattern));
-            }
-        }
-
+        [ObservableProperty]
         private FileSearchType typeOfFileSearch = FileSearchType.Asterisk;
-        public FileSearchType TypeOfFileSearch
-        {
-            get { return typeOfFileSearch; }
-            set
-            {
-                if (typeOfFileSearch == value)
-                    return;
 
-                typeOfFileSearch = value;
-                OnPropertyChanged(nameof(TypeOfFileSearch));
-            }
-        }
-
+        [ObservableProperty]
         private SearchType typeOfSearch = SearchType.PlainText;
-        public SearchType TypeOfSearch
+        partial void OnTypeOfFileSearchChanged(FileSearchType value)
         {
-            get { return typeOfSearch; }
-            set
-            {
-                if (typeOfSearch == value)
-                    return;
-
-                typeOfSearch = value;
-                OnPropertyChanged(nameof(TypeOfSearch));
-
-                UpdateTypeOfSearchState();
-            }
+            UpdateTypeOfSearchState();
         }
 
+        [ObservableProperty]
         private bool caseSensitive = false;
-        public bool CaseSensitive
-        {
-            get { return caseSensitive; }
-            set
-            {
-                if (caseSensitive == value)
-                    return;
 
-                caseSensitive = value;
-                OnPropertyChanged(nameof(CaseSensitive));
-            }
-        }
-
+        [ObservableProperty]
         private bool isCaseSensitiveEnabled = false;
-        public bool IsCaseSensitiveEnabled
-        {
-            get { return isCaseSensitiveEnabled; }
-            set
-            {
-                if (isCaseSensitiveEnabled == value)
-                    return;
 
-                isCaseSensitiveEnabled = value;
-                OnPropertyChanged(nameof(IsCaseSensitiveEnabled));
-            }
-        }
-
+        [ObservableProperty]
         private bool wholeWord = false;
-        public bool WholeWord
-        {
-            get { return wholeWord; }
-            set
-            {
-                if (wholeWord == value)
-                    return;
 
-                wholeWord = value;
-                OnPropertyChanged(nameof(WholeWord));
-            }
-        }
-
+        [ObservableProperty]
         private bool isWholeWordEnabled = false;
-        public bool IsWholeWordEnabled
-        {
-            get { return isWholeWordEnabled; }
-            set
-            {
-                if (isWholeWordEnabled == value)
-                    return;
 
-                isWholeWordEnabled = value;
-                OnPropertyChanged(nameof(IsWholeWordEnabled));
-            }
-        }
-
+        [ObservableProperty]
         private bool multiline = false;
-        public bool Multiline
-        {
-            get { return multiline; }
-            set
-            {
-                if (multiline == value)
-                    return;
 
-                multiline = value;
-                OnPropertyChanged(nameof(Multiline));
-            }
-        }
-
+        [ObservableProperty]
         private bool isMultilineEnabled = false;
-        public bool IsMultilineEnabled
-        {
-            get { return isMultilineEnabled; }
-            set
-            {
-                if (isMultilineEnabled == value)
-                    return;
 
-                isMultilineEnabled = value;
-                OnPropertyChanged(nameof(IsMultilineEnabled));
-            }
-        }
-
-
+        [ObservableProperty]
         private bool singleline = false;
-        public bool Singleline
-        {
-            get { return singleline; }
-            set
-            {
-                if (singleline == value)
-                    return;
 
-                singleline = value;
-                OnPropertyChanged(nameof(Singleline));
-            }
-        }
-
+        [ObservableProperty]
         private bool isSinglelineEnabled = false;
-        public bool IsSinglelineEnabled
-        {
-            get { return isSinglelineEnabled; }
-            set
-            {
-                if (isSinglelineEnabled == value)
-                    return;
 
-                isSinglelineEnabled = value;
-                OnPropertyChanged(nameof(IsSinglelineEnabled));
-            }
-        }
-
-
+        [ObservableProperty]
         private bool booleanOperators = false;
-        public bool BooleanOperators
-        {
-            get { return booleanOperators; }
-            set
-            {
-                if (booleanOperators == value)
-                    return;
 
-                booleanOperators = value;
-                OnPropertyChanged(nameof(BooleanOperators));
-            }
-        }
+        [ObservableProperty]
+        private bool isBooleanOperatorsEnabled = false;
 
-        private bool isbooleanOperatorsEnabled = false;
-        public bool IsBooleanOperatorsEnabled
-        {
-            get { return isbooleanOperatorsEnabled; }
-            set
-            {
-                if (isbooleanOperatorsEnabled == value)
-                    return;
-
-                isbooleanOperatorsEnabled = value;
-                OnPropertyChanged(nameof(IsBooleanOperatorsEnabled));
-            }
-        }
-
+        [ObservableProperty]
         private bool includeSubfolders = true;
-        public bool IncludeSubfolders
+        partial void OnIncludeSubfoldersChanged(bool value)
         {
-            get { return includeSubfolders; }
-            set
+            if (!value)
             {
-                if (includeSubfolders == value)
-                    return;
-
-                includeSubfolders = value;
-                OnPropertyChanged(nameof(IncludeSubfolders));
-
-                if (!includeSubfolders)
-                {
-                    MaxSubfolderDepth = -1;
-                }
+                MaxSubfolderDepth = -1;
             }
         }
 
+        [ObservableProperty]
         private int maxSubfolderDepth = -1;
-        public int MaxSubfolderDepth
-        {
-            get { return maxSubfolderDepth; }
-            set
-            {
-                if (value == maxSubfolderDepth)
-                    return;
 
-                maxSubfolderDepth = value;
-
-                base.OnPropertyChanged(() => MaxSubfolderDepth);
-            }
-        }
-
+        [ObservableProperty]
         private bool includeHidden = false;
-        public bool IncludeHidden
-        {
-            get { return includeHidden; }
-            set
-            {
-                if (includeHidden == value)
-                    return;
 
-                includeHidden = value;
-                OnPropertyChanged(nameof(IncludeHidden));
-            }
-        }
-
+        [ObservableProperty]
         private bool includeBinary = false;
-        public bool IncludeBinary
-        {
-            get { return includeBinary; }
-            set
-            {
-                if (includeBinary == value)
-                    return;
 
-                includeBinary = value;
-                OnPropertyChanged(nameof(IncludeBinary));
-            }
-        }
-
+        [ObservableProperty]
         private bool useGitignore = false;
-        public bool UseGitignore
-        {
-            get { return useGitignore; }
-            set
-            {
-                if (useGitignore == value)
-                    return;
 
-                useGitignore = value;
-                OnPropertyChanged(nameof(UseGitignore));
-            }
-        }
+        public ObservableCollection<string> IgnoreFilterList { get; } = new();
 
+        [ObservableProperty]
+        private string ignoreFilterName = string.Empty;
+
+        [ObservableProperty]
+        private bool skipRemoteCloudStorageFiles = true;
+
+        [ObservableProperty]
         private bool includeArchive = false;
-        public bool IncludeArchive
-        {
-            get { return includeArchive; }
-            set
-            {
-                if (includeArchive == value)
-                    return;
 
-                includeArchive = value;
-                OnPropertyChanged(nameof(IncludeArchive));
-            }
-        }
-
+        [ObservableProperty]
         private bool followSymlinks = false;
-        public bool FollowSymlinks
-        {
-            get { return followSymlinks; }
-            set
-            {
-                if (followSymlinks == value)
-                    return;
 
-                followSymlinks = value;
-                OnPropertyChanged(nameof(FollowSymlinks));
-            }
-        }
-
+        [ObservableProperty]
         private int codePage = -1;
-        public int CodePage
+        partial void OnCodePageChanged(int value)
         {
-            get { return codePage; }
-            set
+            int index = (Encodings.Select((kv, Index) => new { kv.Value, Index })
+                .FirstOrDefault(a => a.Value == value) ?? new { Value = 0, Index = 0 }).Index;
+            if (index >= 0 && index < Encodings.Count)
             {
-                if (codePage == value)
-                    return;
-
-                codePage = value;
-                OnPropertyChanged(nameof(CodePage));
-
-                EncodingIndex = (Encodings.Select((kv, Index) => new { kv.Value, Index })
-                    .FirstOrDefault(a => a.Value == codePage) ?? new { Value = 0, Index = 0 }).Index;
+                EncodingIndex = index;
             }
         }
 
+        [ObservableProperty]
         private int encodingIndex = 0;
-        public int EncodingIndex
-        {
-            get { return encodingIndex; }
-            set
-            {
-                if (encodingIndex == value || encodingIndex < 0 || encodingIndex > Encodings.Count - 1)
-                    return;
 
-                encodingIndex = value;
-                OnPropertyChanged(nameof(EncodingIndex));
-            }
-        }
-
+        [ObservableProperty]
         private string pathReferences = string.Empty;
-        public string PathReferences
-        {
-            get { return pathReferences; }
-            set
-            {
-                if (value == pathReferences)
-                    return;
 
-                pathReferences = value;
-                OnPropertyChanged(nameof(PathReferences));
-            }
-        }
-
+        [ObservableProperty]
         private bool isEverythingAvailable;
-        public bool IsEverythingAvailable
-        {
-            get { return isEverythingAvailable; }
-            set
-            {
-                if (value == isEverythingAvailable)
-                    return;
 
-                isEverythingAvailable = value;
-
-                base.OnPropertyChanged(nameof(IsEverythingAvailable));
-            }
-        }
-
+        [ObservableProperty]
         private bool isGitInstalled;
-        public bool IsGitInstalled
+
+        [ObservableProperty]
+        private bool applyFileSourceFilters = true;
+        partial void OnApplyFileSourceFiltersChanged(bool value)
         {
-            get { return isGitInstalled; }
-            set
+            if (!value)
             {
-                if (value == isGitInstalled)
-                    return;
-
-                isGitInstalled = value;
-
-                base.OnPropertyChanged(nameof(IsGitInstalled));
+                FilePattern = string.Empty;
+                IgnoreFilePattern = string.Empty;
             }
+            UpdateSectionIndex();
         }
 
-        RelayCommand _saveCommand;
+        [ObservableProperty]
+        private bool applyFilePropertyFilters = true;
+        partial void OnApplyFilePropertyFiltersChanged(bool value)
+        {
+            UpdateSectionIndex();
+        }
+
+        [ObservableProperty]
+        private bool applyContentSearchFilters = true;
+        partial void OnApplyContentSearchFiltersChanged(bool value)
+        {
+            if (!value)
+            {
+                SearchFor = string.Empty;
+                ReplaceWith = string.Empty;
+            }
+            UpdateSectionIndex();
+        }
+
+        [ObservableProperty]
+        private int sectionIndex = 0;
+
+        #endregion
+
+        internal void UpdateSectionIndex()
+        {
+            int value = 0;
+            if (ApplyFileSourceFilters)
+                value += 1;
+            if (ApplyFilePropertyFilters)
+                value += 2;
+            if (ApplyContentSearchFilters)
+                value += 4;
+            SectionIndex = value;
+        }
+
+        public ICommand FilterComboBoxDropDownCommand => new RelayCommand(
+            p => PopulateIgnoreFilters());
+
         /// <summary>
-        /// Returns a command that copies files
+        /// Returns a command that checks for can save
         /// </summary>
-        public ICommand SaveCommand
-        {
-            get
-            {
-                if (_saveCommand == null)
-                {
-                    _saveCommand = new RelayCommand(
-                        param => { /*nothing to do here*/ },
-                        param => CanSave()
-                        );
-                }
-                return _saveCommand;
-            }
-        }
+        public ICommand SaveCommand => new RelayCommand(
+            param => { /*nothing to do here*/ },
+            param => CanSave());
 
         private bool CanSave()
         {
             // if this bookmark matches another bookmark, disable save
             // when in edit mode, it may equal the original value
-            var bmk = BookmarkLibrary.Instance.Find(this.ToBookmark());
-            bool isUnique = bmk == null || ToBookmark() == _original;
+            var current = ToBookmark();
+            var bmk = BookmarkLibrary.Instance.Find(current);
+            bool isUnique = bmk == null || bmk != current ||
+                current.Equals(_original);
             return isUnique;
         }
 
-        public override bool Equals(object obj)
+        public override bool Equals(object? obj)
         {
             if (obj is BookmarkViewModel otherBookmark)
             {
@@ -1048,7 +971,7 @@ namespace dnGREP.WPF
             return false;
         }
 
-        public bool Equals(BookmarkViewModel otherVM)
+        public bool Equals(BookmarkViewModel? otherVM)
         {
             if (otherVM is null)
                 return false;
@@ -1071,8 +994,13 @@ namespace dnGREP.WPF
                 FollowSymlinks == otherVM.FollowSymlinks &&
                 MaxSubfolderDepth == otherVM.MaxSubfolderDepth &&
                 UseGitignore == otherVM.UseGitignore &&
+                IgnoreFilterName == otherVM.IgnoreFilterName &&
+                SkipRemoteCloudStorageFiles == otherVM.SkipRemoteCloudStorageFiles &&
                 IncludeArchive == otherVM.IncludeArchive &&
-                CodePage == otherVM.CodePage;
+                CodePage == otherVM.CodePage &&
+                ApplyFileSourceFilters == otherVM.ApplyFileSourceFilters &&
+                ApplyFilePropertyFilters == otherVM.ApplyFilePropertyFilters &&
+                ApplyContentSearchFilters == otherVM.ApplyContentSearchFilters;
         }
 
         public override int GetHashCode()
@@ -1081,11 +1009,11 @@ namespace dnGREP.WPF
             {
                 int hashCode = 13;
                 hashCode = (hashCode * 17) ^ TypeOfFileSearch.GetHashCode();
-                hashCode = (hashCode * 17) ^ FilePattern?.GetHashCode() ?? 5;
-                hashCode = (hashCode * 17) ^ IgnoreFilePattern?.GetHashCode() ?? 5;
+                hashCode = (hashCode * 17) ^ FilePattern?.GetHashCode(StringComparison.Ordinal) ?? 5;
+                hashCode = (hashCode * 17) ^ IgnoreFilePattern?.GetHashCode(StringComparison.Ordinal) ?? 5;
                 hashCode = (hashCode * 17) ^ TypeOfSearch.GetHashCode();
-                hashCode = (hashCode * 17) ^ SearchFor?.GetHashCode() ?? 5;
-                hashCode = (hashCode * 17) ^ ReplaceWith?.GetHashCode() ?? 5;
+                hashCode = (hashCode * 17) ^ SearchFor?.GetHashCode(StringComparison.Ordinal) ?? 5;
+                hashCode = (hashCode * 17) ^ ReplaceWith?.GetHashCode(StringComparison.Ordinal) ?? 5;
                 hashCode = (hashCode * 17) ^ CaseSensitive.GetHashCode();
                 hashCode = (hashCode * 17) ^ WholeWord.GetHashCode();
                 hashCode = (hashCode * 17) ^ Multiline.GetHashCode();
@@ -1096,21 +1024,26 @@ namespace dnGREP.WPF
                 hashCode = (hashCode * 17) ^ IncludeBinary.GetHashCode();
                 hashCode = (hashCode * 17) ^ MaxSubfolderDepth.GetHashCode();
                 hashCode = (hashCode * 17) ^ UseGitignore.GetHashCode();
+                hashCode = (hashCode * 17) ^ IgnoreFilterName.GetHashCode(StringComparison.Ordinal);
+                hashCode = (hashCode * 17) ^ SkipRemoteCloudStorageFiles.GetHashCode();
                 hashCode = (hashCode * 17) ^ IncludeArchive.GetHashCode();
                 hashCode = (hashCode * 17) ^ FollowSymlinks.GetHashCode();
                 hashCode = (hashCode * 17) ^ CodePage.GetHashCode();
+                hashCode = (hashCode * 17) ^ ApplyFileSourceFilters.GetHashCode();
+                hashCode = (hashCode * 17) ^ ApplyFilePropertyFilters.GetHashCode();
+                hashCode = (hashCode * 17) ^ ApplyContentSearchFilters.GetHashCode();
                 return hashCode;
             }
         }
 
-        public static bool Equals(BookmarkViewModel b1, BookmarkViewModel b2) => b1 is null ? b2 is null : b1.Equals(b2);
+        public static bool Equals(BookmarkViewModel? b1, BookmarkViewModel? b2) => b1 is null ? b2 is null : b1.Equals(b2);
 
-        public static bool operator ==(BookmarkViewModel b1, BookmarkViewModel b2) => Equals(b1, b2);
-        public static bool operator !=(BookmarkViewModel b1, BookmarkViewModel b2) => !Equals(b1, b2);
+        public static bool operator ==(BookmarkViewModel? b1, BookmarkViewModel? b2) => Equals(b1, b2);
+        public static bool operator !=(BookmarkViewModel? b1, BookmarkViewModel? b2) => !Equals(b1, b2);
 
         public override string ToString()
         {
-            return $"{SearchFor} to {ReplaceWith} on {FilePattern} :: {Description}";
+            return $"{Ordinal} {BookmarkName} {SearchFor} to {ReplaceWith} on {FilePattern} :: {Description}";
         }
     }
 }

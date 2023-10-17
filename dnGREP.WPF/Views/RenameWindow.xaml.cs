@@ -1,7 +1,8 @@
-﻿using System.Linq;
+﻿using System.IO;
+using System.Linq;
 using System.Windows;
 using System.Windows.Controls;
-using Alphaleonis.Win32.Filesystem;
+using CommunityToolkit.Mvvm.ComponentModel;
 using dnGREP.Common;
 
 namespace dnGREP.WPF
@@ -18,11 +19,20 @@ namespace dnGREP.WPF
             btnOK.IsEnabled = false;
 
             DataContext = new RenameViewModel();
+
+            Loaded += (s, e) => 
+            {
+                btnOK.IsEnabled = false;
+                txtName.Text = Path.GetFileName(SourcePath);
+                txtName.TextChanged += Name_TextChanged;
+
+                TextBoxCommands.BindCommandsToWindow(this);
+            };
         }
 
-        public string DestinationPath { get; private set; }
+        public string DestinationPath { get; private set; } = string.Empty;
 
-        public string SourcePath { get; set; }
+        public string SourcePath { get; set; } = string.Empty;
 
         private void Name_TextChanged(object sender, TextChangedEventArgs e)
         {
@@ -34,14 +44,14 @@ namespace dnGREP.WPF
             {
                 if (txtName.Text.Where(c => Path.GetInvalidFileNameChars().Contains(c)).Any())
                 {
-                    txtError.Text = "File name contains invalid characters";
+                    txtError.Text = dnGREP.Localization.Properties.Resources.Rename_FileNameContainsInvalidCharacters;
                     return;
                 }
 
-                string destPath = Path.Combine(Path.GetDirectoryName(SourcePath), txtName.Text);
+                string destPath = Path.Combine(Path.GetDirectoryName(SourcePath) ?? string.Empty, txtName.Text);
                 if (File.Exists(destPath))
                 {
-                    txtError.Text = "File name already exists in this directory";
+                    txtError.Text = dnGREP.Localization.Properties.Resources.Rename_FileNameAlreadyExistsInThisDirectory;
                     return;
                 }
 
@@ -61,56 +71,23 @@ namespace dnGREP.WPF
             DialogResult = false;
         }
 
-        public class RenameViewModel : CultureAwareViewModel
+        public partial class RenameViewModel : CultureAwareViewModel
         {
             public RenameViewModel()
             {
                 ApplicationFontFamily = GrepSettings.Instance.Get<string>(GrepSettings.Key.ApplicationFontFamily);
                 DialogFontSize = GrepSettings.Instance.Get<double>(GrepSettings.Key.DialogFontSize);
-                DialogWidth = DialogFontSize * 25.0;
+                DialogWidth = DialogFontSize * 30.0;
             }
 
-            private string applicationFontFamily;
-            public string ApplicationFontFamily
-            {
-                get { return applicationFontFamily; }
-                set
-                {
-                    if (applicationFontFamily == value)
-                        return;
+            [ObservableProperty]
+            private string applicationFontFamily = SystemFonts.MessageFontFamily.Source;
 
-                    applicationFontFamily = value;
-                    base.OnPropertyChanged(nameof(ApplicationFontFamily));
-                }
-            }
+            [ObservableProperty]
+            private double dialogFontSize;
 
-            private double dialogfontSize;
-            public double DialogFontSize
-            {
-                get { return dialogfontSize; }
-                set
-                {
-                    if (dialogfontSize == value)
-                        return;
-
-                    dialogfontSize = value;
-                    base.OnPropertyChanged(nameof(DialogFontSize));
-                }
-            }
-
+            [ObservableProperty]
             private double dialogWidth;
-            public double DialogWidth
-            {
-                get { return dialogWidth; }
-                set
-                {
-                    if (dialogWidth == value)
-                        return;
-
-                    dialogWidth = value;
-                    base.OnPropertyChanged(nameof(DialogWidth));
-                }
-            }
         }
 
     }

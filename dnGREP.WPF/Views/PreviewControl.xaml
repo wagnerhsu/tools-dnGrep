@@ -16,6 +16,7 @@
     <UserControl.Resources>
         <my:BoolToVisibilityConverter x:Key="BoolToVisibilityConverter" TrueValue="Visible" FalseValue="Collapsed" />
         <my:TitleFontSizeConverter x:Key="TitleSizeConverter"/>
+        <my:EnumBooleanConverter x:Key="ebc" />
         <Style TargetType="Label">
             <Setter Property="FontSize">
                 <Setter.Value>
@@ -23,6 +24,14 @@
                 </Setter.Value>
             </Setter>
         </Style>
+
+        <Style TargetType="{x:Type ContextMenu}" BasedOn="{StaticResource ThemedContextMenu}">
+            <Setter Property="FontFamily" Value="{Binding ApplicationFontFamily}"/>
+            <Setter Property="FontSize" Value="{Binding MainFormFontSize}"/>
+        </Style>
+
+        <HierarchicalDataTemplate DataType="{x:Type my:MenuItemViewModel}" 
+                                  ItemsSource="{Binding Path=Children, UpdateSourceTrigger=PropertyChanged}"/>
     </UserControl.Resources>
 
     <Border BorderBrush="{DynamicResource Control.Static.Border}" BorderThickness="0,1,0,0" Margin="3,0">
@@ -43,7 +52,8 @@
                    Visibility="{Binding HighlightDisabled, Converter={StaticResource BoolToVisibilityConverter}}" />
             <WrapPanel Name="statusBar" DockPanel.Dock="Bottom"
                        Margin="3" VerticalAlignment="Center">
-                <StackPanel Orientation="Horizontal">
+                <StackPanel Orientation="Horizontal"
+                            Visibility="{Binding PreviewZoomWndVisible, Converter={StaticResource BoolToVisibilityConverter}}">
                     <TextBlock Text="{l:Loc Key='Preview_Zoom'}" Margin="0,0,3,0" 
                                HorizontalAlignment="Center" 
                                VerticalAlignment="Center"
@@ -55,18 +65,55 @@
                 </StackPanel>
                 <CheckBox Name="cbWrapText" Content="{l:Loc Key='Preview_WrapText'}"
                           Margin="3,0,3,0" VerticalAlignment="Center"
-                          VerticalContentAlignment="Center"/>
-                <ComboBox Name="cbHighlighter" Margin="3,0,3,0" MinWidth="80"
                           VerticalContentAlignment="Center"
-                          ItemsSource="{Binding Path=Highlighters}"
-                          SelectedValue="{Binding Path=CurrentSyntax}" />
+                          Visibility="{Binding WrapTextPreviewWndVisible, Converter={StaticResource BoolToVisibilityConverter}}"/>
+                <Button Margin="3" Padding="8,3" MinWidth="80"
+                        Click="SyntaxButton_Click"
+                        ToolTip="{l:Loc Key='Preview_Syntax'}"
+                        Visibility="{Binding SyntaxPreviewWndVisible, Converter={StaticResource BoolToVisibilityConverter}}">
+                    <Button.Content>
+                        <TextBlock >
+                            <Run Text="{Binding CurrentSyntax, FallbackValue=None}"/>
+                            <Run Text=" ⏷"/>
+                        </TextBlock>
+                    </Button.Content>
+                    <Button.ContextMenu>
+                        <ContextMenu x:Name="syntaxContextMenu"
+                                     ItemsSource="{Binding Path=SyntaxItems, UpdateSourceTrigger=PropertyChanged}">
+                            <ContextMenu.ItemContainerStyle>
+                                <Style TargetType="{x:Type MenuItem}" BasedOn="{StaticResource ThemedMenuItem}">
+                                    <Setter Property="Header" Value="{Binding Header}"/>
+                                    <Setter Property="Command" Value="{Binding Command}"/>
+                                    <Setter Property="IsChecked" Value="{Binding IsChecked}"/>
+                                    <Setter Property="IsCheckable" Value="{Binding IsCheckable}"/>
+                                </Style>
+                            </ContextMenu.ItemContainerStyle>
+                        </ContextMenu>
+                    </Button.ContextMenu>
+                </Button>
             </WrapPanel>
-            <ae:TextEditor Name="textEditor" FontFamily="Consolas"
+            <ae:TextEditor Name="textEditor" Style="{StaticResource ThemedMarkerTextEditor}"
+                           FontFamily="{Binding ResultsFontFamily}"
                            FontSize="{Binding ElementName=zoomSlider, Path=Value}"
                            Foreground="{DynamicResource AvalonEdit.Foreground}"
                            Background="{DynamicResource AvalonEdit.Background}"
                            ShowLineNumbers="True" IsReadOnly="True"
-                           WordWrap="{Binding ElementName=cbWrapText, Path=IsChecked}" />
+                           WordWrap="{Binding ElementName=cbWrapText, Path=IsChecked}">
+                <ae:TextEditor.ContextMenu>
+                    <ContextMenu>
+                        <MenuItem Header="{l:Loc Key='TextBox_Command_Copy'}" Command="Copy"/>
+                        <Separator/>
+                        <MenuItem Header="{l:Loc Key='Main_AutoPosition'}" IsCheckable="True" 
+                                  IsChecked="{Binding DockVM.PreviewAutoPosition}"/>
+                        <my:RadioMenuItem Header="{l:Loc Key='Main_DockRight'}" GroupName="D1" 
+                                  IsChecked="{Binding DockVM.PreviewDockSide, 
+                                        Converter={StaticResource ebc}, ConverterParameter=Right}"/>
+                        <my:RadioMenuItem Header="{l:Loc Key='Main_DockBottom'}" GroupName="D1" 
+                                  IsChecked="{Binding DockVM.PreviewDockSide, 
+                                        Converter={StaticResource ebc}, ConverterParameter=Bottom}"/>
+                    </ContextMenu>
+                </ae:TextEditor.ContextMenu>
+            </ae:TextEditor>
         </DockPanel>
     </Border>
 </UserControl>

@@ -1,4 +1,5 @@
-﻿using System.Windows;
+﻿using System.Diagnostics;
+using System.Windows;
 using System.Windows.Input;
 using System.Windows.Navigation;
 
@@ -14,6 +15,12 @@ namespace dnGREP.WPF
             InitializeComponent();
             DiginesisHelpProvider.HelpNamespace = "https://github.com/dnGrep/dnGrep/wiki/";
             DiginesisHelpProvider.ShowHelp = true;
+
+            Loaded += (s, e) => { TextBoxCommands.BindCommandsToWindow(this); };
+
+            OptionsViewModel viewModel = new();
+            viewModel.RequestClose += (s, e) => Close();
+            DataContext = viewModel;
         }
 
         private void TextBox_PreviewTextInput(object sender, TextCompositionEventArgs e)
@@ -33,7 +40,7 @@ namespace dnGREP.WPF
                 e.CancelCommand();
         }
 
-        private bool IsTextAllowed(string text)
+        private static bool IsTextAllowed(string text)
         {
             if (!string.IsNullOrEmpty(text))
             {
@@ -44,7 +51,12 @@ namespace dnGREP.WPF
         }
         private void Hyperlink_RequestNavigate(object sender, RequestNavigateEventArgs e)
         {
-            System.Diagnostics.Process.Start(e.Uri.ToString());
+            ProcessStartInfo startInfo = new()
+            {
+                FileName = e.Uri.ToString(),
+                UseShellExecute = true,
+            };
+            using var proc = Process.Start(startInfo);
         }
     }
 }

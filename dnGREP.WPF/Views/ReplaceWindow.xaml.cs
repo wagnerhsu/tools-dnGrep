@@ -7,8 +7,8 @@ using System.Windows.Input;
 using System.Windows.Media;
 using System.Windows.Shapes;
 using dnGREP.Common;
+using dnGREP.Common.UI;
 using dnGREP.WPF.Properties;
-using DockFloat;
 using ICSharpCode.AvalonEdit;
 using ICSharpCode.AvalonEdit.Editing;
 using ICSharpCode.AvalonEdit.Search;
@@ -20,22 +20,23 @@ namespace dnGREP.WPF
     /// </summary>
     public partial class ReplaceWindow : ThemedWindow
     {
-        private ReplaceViewHighlighter highlighter;
-        private ReplaceViewLineNumberMargin lineNumberMargin;
+        private ReplaceViewHighlighter? highlighter;
+        private readonly ReplaceViewLineNumberMargin? lineNumberMargin;
         private bool isInitializing;
         private bool isInPropertyChanged;
         private bool isInCaretMoved;
-        private readonly SearchPanel searchPanel;
+        private readonly SearchPanel? searchPanel;
 
         public ReplaceWindow()
         {
             InitializeComponent();
 
             if (LayoutProperties.ReplaceBounds == Rect.Empty ||
-                LayoutProperties.ReplaceBounds == new Rect(0, 0, 0, 0))
+                LayoutProperties.ReplaceBounds == new Rect(0, 0, 0, 0) ||
+                !ViewModel.IsFullDialog)
             {
-                Width = 800;
-                Height = 980;
+                Width = ViewModel.DialogSize.Width;
+                Height = ViewModel.DialogSize.Height;
                 WindowStartupLocation = WindowStartupLocation.CenterScreen;
             }
             else
@@ -55,62 +56,81 @@ namespace dnGREP.WPF
                 this.ConstrainToScreen();
             };
 
-            cbWrapText.IsChecked = GrepSettings.Instance.Get<bool?>(GrepSettings.Key.ReplaceWindowWrap);
-            zoomSlider.Value = GrepSettings.Instance.Get<int>(GrepSettings.Key.ReplaceWindowFontSize);
+            if (ViewModel.IsFullDialog)
+            {
+                cbWrapText.IsChecked = GrepSettings.Instance.Get<bool>(GrepSettings.Key.ReplaceWindowWrap);
+                zoomSlider.Value = GrepSettings.Instance.Get<int>(GrepSettings.Key.ReplaceWindowFontSize);
 
-            textEditor.ShowLineNumbers = false; // using custom line numbers
+                textEditor.ShowLineNumbers = false; // using custom line numbers
 
-            lineNumberMargin = new ReplaceViewLineNumberMargin();
-            Line line = (Line)DottedLineMargin.Create();
-            textEditor.TextArea.LeftMargins.Insert(0, lineNumberMargin);
-            textEditor.TextArea.LeftMargins.Insert(1, line);
-            var lineNumbersForeground = new Binding("LineNumbersForeground") { Source = textEditor };
-            line.SetBinding(Line.StrokeProperty, lineNumbersForeground);
-            lineNumberMargin.SetBinding(Control.ForegroundProperty, lineNumbersForeground);
+                lineNumberMargin = new ReplaceViewLineNumberMargin();
+                Line line = (Line)DottedLineMargin.Create();
+                textEditor.TextArea.LeftMargins.Insert(0, lineNumberMargin);
+                textEditor.TextArea.LeftMargins.Insert(1, line);
+                var lineNumbersForeground = new Binding("LineNumbersForeground") { Source = textEditor };
+                line.SetBinding(Line.StrokeProperty, lineNumbersForeground);
+                lineNumberMargin.SetBinding(Control.ForegroundProperty, lineNumbersForeground);
+
+                searchPanel = SearchPanel.Install(textEditor);
+                searchPanel.MarkerBrush = Application.Current.Resources["Match.Highlight.Background"] as Brush;
+
+                ViewModel.LoadFile += (s, e) => LoadFile();
+                ViewModel.ReplaceMatch += (s, e) => textEditor.TextArea.TextView.Redraw();
+                ViewModel.PropertyChanged += ViewModel_PropertyChanged;
+
+                textEditor.Loaded += (s, e) =>
+                {
+                    // once loaded, move to the first file
+                    ViewModel.SelectNextFile();
+                };
+
+                textEditor.TextArea.Caret.PositionChanged += Caret_PositionChanged;
+            }
+            else
+            {
+                Loaded += (s, e) =>
+                {
+                    // once loaded, move to the first file
+                    ViewModel.SelectNextFile();
+                };
+            }
+
+            ViewModel.CloseTrue += ViewModel_CloseTrue;
 
             DataContext = ViewModel;
 
-            searchPanel = SearchPanel.Install(textEditor);
-            searchPanel.MarkerBrush = Application.Current.Resources["Match.Highlight.Background"] as Brush;
-
-            ViewModel.LoadFile += (s, e) => LoadFile();
-            ViewModel.ReplaceMatch += (s, e) => textEditor.TextArea.TextView.Redraw();
-            ViewModel.PropertyChanged += ViewModel_PropertyChanged;
-            ViewModel.CloseTrue += ViewModel_CloseTrue;
-
-            textEditor.Loaded += (s, e) =>
-            {
-                // once loaded, move to the first file
-                ViewModel.SelectNextFile();
-            };
-
             Closing += (s, e) => SaveSettings();
 
-            textEditor.TextArea.Caret.PositionChanged += Caret_PositionChanged;
         }
 
         private void SaveSettings()
         {
-            GrepSettings.Instance.Set(GrepSettings.Key.ReplaceWindowWrap, cbWrapText.IsChecked);
-            GrepSettings.Instance.Set(GrepSettings.Key.ReplaceWindowFontSize, (int)zoomSlider.Value);
+            if (ViewModel.IsFullDialog)
+            {
+                GrepSettings.Instance.Set(GrepSettings.Key.ReplaceWindowWrap, cbWrapText.IsChecked ?? false);
+                GrepSettings.Instance.Set(GrepSettings.Key.ReplaceWindowFontSize, (int)zoomSlider.Value);
 
-            LayoutProperties.ReplaceBounds = new Rect(
-               Left,
-               Top,
-               ActualWidth,
-               ActualHeight);
-            LayoutProperties.Save();
+                LayoutProperties.ReplaceBounds = new Rect(
+                   Left,
+                   Top,
+                   ActualWidth,
+                   ActualHeight);
+                LayoutProperties.Save();
+            }
         }
 
         public ReplaceViewModel ViewModel { get; } = new ReplaceViewModel();
 
-        private void ViewModel_PropertyChanged(object sender, PropertyChangedEventArgs e)
+        private void ViewModel_PropertyChanged(object? sender, PropertyChangedEventArgs e)
         {
             if (e.PropertyName == "SelectedGrepMatch")
             {
                 isInPropertyChanged = true;
 
-                highlighter.SelectedGrepMatch = ViewModel.SelectedGrepMatch;
+                if (highlighter != null)
+                {
+                    highlighter.SelectedGrepMatch = ViewModel.SelectedGrepMatch;
+                }
 
                 if (ViewModel.SelectedGrepMatch != null && !isInCaretMoved)
                 {
@@ -134,24 +154,25 @@ namespace dnGREP.WPF
         {
             isInitializing = true;
 
-            lineNumberMargin.LineNumbers.Clear();
+            lineNumberMargin?.LineNumbers.Clear();
             textEditor.Clear();
-            for (int i = textEditor.TextArea.TextView.LineTransformers.Count - 1; i >= 0; i--)
+            for (int i = textEditor.TextArea.TextView.BackgroundRenderers.Count - 1; i >= 0; i--)
             {
-                if (textEditor.TextArea.TextView.LineTransformers[i] is ReplaceViewHighlighter)
-                    textEditor.TextArea.TextView.LineTransformers.RemoveAt(i);
+                if (textEditor.TextArea.TextView.BackgroundRenderers[i] is ReplaceViewHighlighter)
+                    textEditor.TextArea.TextView.BackgroundRenderers.RemoveAt(i);
             }
 
-            if (ViewModel.IndividualReplaceEnabled)
+            if (ViewModel.IndividualReplaceEnabled && ViewModel.SelectedSearchResult != null)
             {
                 highlighter = new ReplaceViewHighlighter(ViewModel.SelectedSearchResult);
-                textEditor.TextArea.TextView.LineTransformers.Add(highlighter);
+                highlighter.LineNumbers.AddRange(ViewModel.LineNumbers);
+                textEditor.TextArea.TextView.BackgroundRenderers.Add(highlighter);
                 textEditor.Encoding = ViewModel.Encoding;
                 textEditor.SyntaxHighlighting = ViewModel.HighlightingDefinition;
                 textEditor.TextArea.TextView.LinkTextForegroundBrush = Application.Current.Resources["AvalonEdit.Link"] as Brush;
             }
 
-            lineNumberMargin.LineNumbers.AddRange(ViewModel.LineNumbers);
+            lineNumberMargin?.LineNumbers.AddRange(ViewModel.LineNumbers);
 
             try
             {
@@ -168,20 +189,20 @@ namespace dnGREP.WPF
             {
                 textEditor.Text = "Error opening the file: " + ex.Message;
                 // remove the highlighter
-                for (int i = textEditor.TextArea.TextView.LineTransformers.Count - 1; i >= 0; i--)
+                for (int i = textEditor.TextArea.TextView.BackgroundRenderers.Count - 1; i >= 0; i--)
                 {
-                    if (textEditor.TextArea.TextView.LineTransformers[i] is ReplaceViewHighlighter)
-                        textEditor.TextArea.TextView.LineTransformers.RemoveAt(i);
+                    if (textEditor.TextArea.TextView.BackgroundRenderers[i] is ReplaceViewHighlighter)
+                        textEditor.TextArea.TextView.BackgroundRenderers.RemoveAt(i);
                 }
             }
 
             // recalculate the width of the line number margin
-            lineNumberMargin.Measure(new Size(double.PositiveInfinity, double.PositiveInfinity));
+            lineNumberMargin?.Measure(new Size(double.PositiveInfinity, double.PositiveInfinity));
 
             isInitializing = false;
         }
 
-        private void Caret_PositionChanged(object sender, EventArgs e)
+        private void Caret_PositionChanged(object? sender, EventArgs e)
         {
             if (isInitializing || isInPropertyChanged)
                 return;
@@ -219,7 +240,7 @@ namespace dnGREP.WPF
 
             if (focusDirection != FocusNavigationDirection.First)
             {
-                TraversalRequest request = new TraversalRequest(focusDirection);
+                TraversalRequest request = new(focusDirection);
 
                 // Gets the element with keyboard focus.
                 if (Keyboard.FocusedElement is UIElement elementWithFocus)
@@ -229,19 +250,26 @@ namespace dnGREP.WPF
             }
         }
 
-        private void ViewModel_CloseTrue(object sender, EventArgs e)
+        private void SyntaxButton_Click(object sender, RoutedEventArgs e)
+        {
+            syntaxContextMenu.Placement = System.Windows.Controls.Primitives.PlacementMode.Bottom;
+            syntaxContextMenu.PlacementTarget = (UIElement)sender;
+            syntaxContextMenu.IsOpen = true;
+        }
+
+        private void ViewModel_CloseTrue(object? sender, EventArgs e)
         {
             DialogResult = true;
             Close();
         }
 
-        private void CancelButton_Click(object sender, RoutedEventArgs e)
+        private void CancelButton_Click(object? sender, RoutedEventArgs e)
         {
             DialogResult = false;
             Close();
         }
 
-        private void OKButton_Click(object sender, RoutedEventArgs e)
+        private void OKButton_Click(object? sender, RoutedEventArgs e)
         {
             DialogResult = true;
             Close();

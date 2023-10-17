@@ -1,10 +1,11 @@
 ﻿<my:ThemedWindow x:Class="dnGREP.WPF.MainForm"
                  xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
                  xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+                 xmlns:i="http://schemas.microsoft.com/xaml/behaviors"
                  xmlns:my="clr-namespace:dnGREP.WPF"
                  xmlns:l="clr-namespace:dnGREP.Localization;assembly=dnGREP.Localization"
                  xmlns:uc="clr-namespace:dnGREP.WPF.UserControls"
-                 xmlns:df="clr-namespace:DockFloat;assembly=DockFloat"
+                 xmlns:df="clr-namespace:dnGREP.DockFloat;assembly=dnGREP.DockFloat"
                  xmlns:sys="clr-namespace:System;assembly=mscorlib"
                  xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
                  xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
@@ -38,22 +39,53 @@
         <my:BoolToVisibilityConverter x:Key="BoolToVisibilityConverter" TrueValue="Visible" FalseValue="Collapsed" />
         <my:BoolToVisibilityConverter x:Key="InverseBoolToVisibilityConverter" TrueValue="Collapsed"
                                       FalseValue="Visible" />
+        <my:BoolToVisibilityConverter x:Key="BoolToHiddenVisibilityConverter" TrueValue="Visible" FalseValue="Hidden" />
         <my:GridLengthConverter x:Key="GridLengthConverter" />
         <my:IntOrEmptyValueConverter x:Key="IntConverter"/>
+        <my:StringToVisibilityConverter x:Key="StringToVisibilityConverter"/>
         <my:TitleFontSizeConverter x:Key="TitleSizeConverter"/>
         <my:TextBoxWidthConverter x:Key="TextBoxWidthConverter"/>
+        <my:ValidationColorConverter x:Key="validationColor" />
 
         <Style TargetType="{x:Type ContextMenu}" BasedOn="{StaticResource ThemedContextMenu}">
             <Setter Property="FontFamily" Value="{Binding ApplicationFontFamily}"/>
             <Setter Property="FontSize" Value="{Binding MainFormFontSize}"/>
         </Style>
+
+        <HierarchicalDataTemplate DataType="{x:Type my:MenuItemViewModel}" 
+                                  ItemsSource="{Binding Path=Children, UpdateSourceTrigger=PropertyChanged}"/>
+
+        <DataTemplate x:Key="comboBoxPinDelTemplate">
+            <Grid>
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="Auto" SharedSizeGroup="TEXT"/>
+                    <ColumnDefinition Width="*" /> <!-- shim -->
+                    <ColumnDefinition Width="Auto" SharedSizeGroup="PIN"/>
+                    <ColumnDefinition Width="Auto" SharedSizeGroup="DEL"/>
+                </Grid.ColumnDefinitions>
+                <TextBlock Grid.Column="0" Margin="0,0,6,0"
+                           Text="{Binding StringValue}"/>
+                <Border Grid.Column="1" HorizontalAlignment="Stretch"/>
+                <ToggleButton Grid.Column="2" Margin="3,0"
+                              Style="{StaticResource ComboBoxPinButton}"
+                              IsChecked="{Binding IsPinned, Mode=TwoWay}"/>
+                <Button Grid.Column="3" Margin="3,0"
+                        Style="{StaticResource ComboBoxDeleteButton}"
+                        Command="{Binding DataContext.DeleteMRUItemCommand,
+                            RelativeSource={RelativeSource AncestorType=ComboBox}}"
+                        CommandParameter="{Binding}"/>
+            </Grid>
+        </DataTemplate>
+
     </my:ThemedWindow.Resources>
 
     <my:ThemedWindow.InputBindings>
         <KeyBinding Key="Escape" Command="{Binding CancelCommand}" />
         <KeyBinding Key="e" Modifiers="Alt"
                     Command="{Binding ToggleFileOptionsCommand}" />
+        <KeyBinding Key="F8" Command="{Binding OptionsCommand}" />
         <KeyBinding Gesture="Ctrl+F5" Command="{Binding ReloadThemeCommand}" />
+        <KeyBinding Gesture="F7" Command="{Binding ToggleResultsMaximizeCommand}" />
     </my:ThemedWindow.InputBindings>
 
     <DockPanel ManipulationBoundaryFeedback="ManipulationBoundaryFeedbackHandler"
@@ -68,17 +100,17 @@
                      ShowHeader="True"
                      FloatWindowBounds="{Binding PreviewWindowBounds, Mode=TwoWay}"
                      FloatWindowState="{Binding PreviewWindowState, Mode=TwoWay}"
-                     IsDocked="{Binding IsPreviewDocked, Mode=TwoWay}"
+                     IsDocked="{Binding DockVM.IsPreviewDocked, Mode=TwoWay}"
                      IsHidden="{Binding IsPreviewHidden, Mode=TwoWay}"
                      FontSize="{Binding MainFormFontSize, Converter={StaticResource TitleSizeConverter}, ConverterParameter=2, FallbackValue=14}" 
                      Style="{StaticResource ThemedDockSite}">
             <df:DockSite.ContextMenu>
                 <ContextMenu>
-                    <MenuItem Header="{l:Loc Key='Main_AutoPosition'}" IsCheckable="True" IsChecked="{Binding PreviewAutoPosition}"/>
+                    <MenuItem Header="{l:Loc Key='Main_AutoPosition'}" IsCheckable="True" IsChecked="{Binding DockVM.PreviewAutoPosition}"/>
                     <my:RadioMenuItem Header="{l:Loc Key='Main_DockRight'}" GroupName="D1" 
-                                      IsChecked="{Binding Path=PreviewDockSide, Converter={StaticResource ebc}, ConverterParameter=Right}"/>
+                                      IsChecked="{Binding Path=DockVM.PreviewDockSide, Converter={StaticResource ebc}, ConverterParameter=Right}"/>
                     <my:RadioMenuItem Header="{l:Loc Key='Main_DockBottom'}" GroupName="D1" 
-                                      IsChecked="{Binding Path=PreviewDockSide, Converter={StaticResource ebc}, ConverterParameter=Bottom}"/>
+                                      IsChecked="{Binding Path=DockVM.PreviewDockSide, Converter={StaticResource ebc}, ConverterParameter=Bottom}"/>
                 </ContextMenu>
             </df:DockSite.ContextMenu>
             <Border x:Name="previewRootElement">
@@ -98,17 +130,17 @@
                      ShowHeader="True"
                      FloatWindowBounds="{Binding PreviewWindowBounds, Mode=TwoWay}"
                      FloatWindowState="{Binding PreviewWindowState, Mode=TwoWay}"
-                     IsDocked="{Binding IsPreviewDocked, Mode=TwoWay}"
+                     IsDocked="{Binding DockVM.IsPreviewDocked, Mode=TwoWay}"
                      IsHidden="{Binding IsPreviewHidden, Mode=TwoWay}"
                      FontSize="{Binding MainFormFontSize, Converter={StaticResource TitleSizeConverter}, ConverterParameter=2, FallbackValue=14}" 
                      Style="{StaticResource ThemedDockSite}">
             <df:DockSite.ContextMenu>
                 <ContextMenu>
-                    <MenuItem Header="{l:Loc Key='Main_AutoPosition'}" IsCheckable="True" IsChecked="{Binding PreviewAutoPosition}"/>
+                    <MenuItem Header="{l:Loc Key='Main_AutoPosition'}" IsCheckable="True" IsChecked="{Binding DockVM.PreviewAutoPosition}"/>
                     <my:RadioMenuItem Header="{l:Loc Key='Main_DockRight'}" GroupName="D1" 
-                                      IsChecked="{Binding Path=PreviewDockSide, Converter={StaticResource ebc}, ConverterParameter=Right}"/>
+                                      IsChecked="{Binding Path=DockVM.PreviewDockSide, Converter={StaticResource ebc}, ConverterParameter=Right}"/>
                     <my:RadioMenuItem Header="{l:Loc Key='Main_DockBottom'}" GroupName="D1" 
-                                      IsChecked="{Binding Path=PreviewDockSide, Converter={StaticResource ebc}, ConverterParameter=Bottom}"/>
+                                      IsChecked="{Binding Path=DockVM.PreviewDockSide, Converter={StaticResource ebc}, ConverterParameter=Bottom}"/>
                 </ContextMenu>
             </df:DockSite.ContextMenu>
             <!-- Content panel is in just one DockSite -->
@@ -119,14 +151,14 @@
                               ProportionalResize="True" />
 
         <DockPanel>
-            <DockPanel Margin="5,5,5,0" DockPanel.Dock="Top"
+            <DockPanel Margin="0" DockPanel.Dock="Top"
                        Background="{DynamicResource Menu.Normal.Background}">
                 <TextBlock DockPanel.Dock="Left" 
-                           FontSize="{Binding MainFormFontSize, Converter={StaticResource TitleSizeConverter}, ConverterParameter=4}" 
+                           Margin="12,0,0,3"
                            FontWeight="DemiBold"
                            Text="{l:Loc Key='Main_DnGREP_Title'}"
                            Style="{StaticResource ThemedTextBlock}" />
-                <Menu HorizontalAlignment="Right">
+                <Menu HorizontalAlignment="Right" Margin="6,0">
                     <Menu.Resources>
                         <Style BasedOn="{StaticResource ThemedMenuItem}" TargetType="{x:Type MenuItem}">
                             <Setter Property="FontFamily" Value="{Binding ApplicationFontFamily}"/>
@@ -135,15 +167,41 @@
                     </Menu.Resources>
                     <MenuItem Margin="0,0,3,0" Header="{l:Loc Key='Main_Menu_Undo'}"
                               Command="{Binding UndoCommand}"
-                              TabIndex="0" />
-                    <MenuItem Margin="0,0,3,0" Header="{l:Loc Key='Main_Menu_Options'}"
-                              Command="{Binding OptionsCommand}"
-                              TabIndex="1" />
+                              TabIndex="0" 
+                              Visibility="{Binding ReplaceVisible, Converter={StaticResource BoolToVisibilityConverter}}"/>
+                    <MenuItem Margin="0,0,3,0" Header="{l:Loc Key='Main_Menu_Settings'}" TabIndex="1">
+                        <MenuItem Header="{l:Loc Key='Main_Menu_Personalize'}" IsCheckable="True" IsChecked="{Binding PersonalizationOn}"/>
+                        <MenuItem Header="{l:Loc Key='Main_Menu_Options'}" Command="{Binding OptionsCommand}" InputGestureText="F8"/>
+                    </MenuItem>
+                    <MenuItem Margin="0,0,3,0" Header="{l:Loc Key='Main_Menu_Scripts'}" TabIndex="2"
+                              ItemsSource="{Binding Path=ScriptMenuItems, UpdateSourceTrigger=PropertyChanged}" >
+                        <MenuItem.ItemContainerStyle>
+                            <Style TargetType="{x:Type MenuItem}" BasedOn="{StaticResource ThemedMenuItem}">
+                                <Setter Property="Header" Value="{Binding Header}"/>
+                                <Setter Property="Command" Value="{Binding Command}"/>
+                                <Style.Triggers>
+                                    <DataTrigger Binding="{Binding IsSeparator}" Value="True">
+                                        <Setter Property="Template">
+                                            <Setter.Value>
+                                                <ControlTemplate TargetType="{x:Type MenuItem}">
+                                                    <Separator Style="{StaticResource ThemedMenuSeparator}" />
+                                                </ControlTemplate>
+                                            </Setter.Value>
+                                        </Setter>
+                                    </DataTrigger>
+                                </Style.Triggers>
+                            </Style>
+                        </MenuItem.ItemContainerStyle>
+                    </MenuItem>
+
                     <MenuItem Margin="0,0,3,0" Header="{l:Loc Key='Main_Menu_Bookmarks'}"
-                              Command="{Binding BookmarkOpenCommand}"
-                              TabIndex="2" />
-                    <MenuItem Margin="0,0,3,0" Header="{l:Loc Key='Main_Menu_About'}" TabIndex="3">
+                              Command="{Binding OpenBookmarksWindowCommand}"
+                              TabIndex="3"
+                              Visibility="{Binding BookmarksVisible, Converter={StaticResource BoolToVisibilityConverter}}"/>
+                    <MenuItem Margin="0,0,3,0" Header="{l:Loc Key='Main_Menu_About'}" TabIndex="4">
                         <MenuItem Command="{Binding HelpCommand}" Header="{l:Loc Key='Main_Menu_About_Help'}" />
+                        <MenuItem Command="{Binding CheckForUpdatesCommand}" Header="{l:Loc Key='Main_Menu_About_CheckForUpdates'}"/>
+                        <MenuItem Command="{Binding OpenAppDataCommand}" Header="{l:Loc Key='Main_Menu_About_AppData'}"/>
                         <MenuItem Command="{Binding AboutCommand}" Header="{l:Loc Key='Main_Menu_About_AboutDnGrep'}" />
                     </MenuItem>
                 </Menu>
@@ -152,26 +210,61 @@
             <StatusBar DockPanel.Dock="Bottom"
                        FontFamily="{Binding ApplicationFontFamily}"
                        FontSize="{Binding MainFormFontSize}">
-                <StatusBarItem>
-                    <StackPanel Orientation="Horizontal">
-                        <CheckBox Margin="3,0,10,0" Background="{DynamicResource Control.Static.Background}"
-                                  ToolTip="{Binding ResultOptionsButtonTooltip}"
-                                  Template="{DynamicResource ExpanderButtonTemplate}"
-                                  IsChecked="{Binding IsResultOptionsExpanded}" />
-                        <ProgressBar Width="150" Height="18" Margin="3,0"
-                                     IsIndeterminate="{Binding IsOperationInProgress}" />
-                        <TextBlock Margin="3,0"
-                                   Text="{Binding StatusMessage}"
-                                   Style="{StaticResource LabelTextBlockStyle}" />
-                    </StackPanel>
-                </StatusBarItem>
-                <StatusBarItem HorizontalAlignment="Right">
+                <StatusBarItem DockPanel.Dock="Right">
                     <StackPanel Orientation="Horizontal" Visibility="{Binding IsSaveInProgress, Converter={StaticResource BoolToVisibilityConverter}}">
                         <ProgressBar Width="150" Height="18" Margin="3,0"
                                      IsIndeterminate="true" />
                         <TextBlock Margin="3,0,12,0" Text="{l:Loc Key='Main_SavingResultsToFile'}"
                                    Style="{StaticResource LabelTextBlockStyle}" />
                     </StackPanel>
+                </StatusBarItem>
+                <StatusBarItem DockPanel.Dock="Right">
+                    <TextBlock x:Name="status4" 
+                               Text="{Binding StatusMessage4}" 
+                               ToolTip="{Binding StatusMessage4Tooltip}"
+                               Style="{StaticResource LabelTextBlockStyle}"/>
+                </StatusBarItem>
+                <Separator DockPanel.Dock="Right"  
+                           Visibility="{Binding ElementName=status4, Path=Text, Converter={StaticResource StringToVisibilityConverter}}"/>
+                <StatusBarItem DockPanel.Dock="Right">
+                    <TextBlock x:Name="status3" 
+                               Text="{Binding StatusMessage3}" 
+                               ToolTip="{Binding StatusMessage3Tooltip}"
+                               Style="{StaticResource LabelTextBlockStyle}"/>
+                </StatusBarItem>
+                <Separator DockPanel.Dock="Right"
+                           Visibility="{Binding ElementName=status3, Path=Text, Converter={StaticResource StringToVisibilityConverter}}"/>
+                <StatusBarItem DockPanel.Dock="Right">
+                    <TextBlock x:Name="status2" 
+                               Margin="3,0"
+                               Text="{Binding StatusMessage2}"
+                               ToolTip="{Binding StatusMessage2Tooltip}"
+                               Style="{StaticResource LabelTextBlockStyle}"/>
+                </StatusBarItem>
+                <StatusBarItem DockPanel.Dock="Left">
+                    <CheckBox Margin="3,0" Background="{DynamicResource Control.Static.Background}"
+                              ToolTip="{Binding ResultOptionsButtonTooltip}"
+                              Template="{DynamicResource ExpanderButtonTemplate}"
+                              IsChecked="{Binding IsResultOptionsExpanded}"
+                              Visibility="{Binding ResultsTreeOptionsExpanderVisible, Converter={StaticResource BoolToVisibilityConverter}}"/>
+                </StatusBarItem>
+                <StatusBarItem DockPanel.Dock="Left">
+                    <Grid Width="120" Margin="3,0"
+                          Visibility="{Binding IsOperationInProgress, Converter={StaticResource BoolToVisibilityConverter}}">
+                        <ProgressBar Height="18" 
+                                     IsIndeterminate="{Binding IsSearchReplacePaused, Converter={StaticResource InverseBooleanConverter}}" />
+                        <TextBlock Text="{l:Loc Key='Main_Paused'}" Style="{StaticResource LabelTextBlockStyle}"
+                                   Width="120" TextAlignment="Center"
+                                   Foreground="{DynamicResource Match.Skip.Foreground}"
+                                   Background="{DynamicResource Match.Skip.Background}"
+                                   HorizontalAlignment="Center" VerticalAlignment="Center"
+                                   Visibility="{Binding IsSearchReplacePaused, Converter={StaticResource BoolToVisibilityConverter}}"/>
+                    </Grid>
+                </StatusBarItem>
+                <StatusBarItem DockPanel.Dock="Left">
+                    <TextBlock Margin="3,0"
+                               Text="{Binding StatusMessage}"
+                               Style="{StaticResource LabelTextBlockStyle}" />
                 </StatusBarItem>
             </StatusBar>
 
@@ -180,18 +273,21 @@
                 <CheckBox Content="{l:Loc Key='Main_HighlightMatches'}" Margin="10,3,6,3"                                  
                           IsChecked="{Binding HighlightsOn}"
                           Command="{Binding HighlightsCommand}" 
-                          TabIndex="91"/>
+                          TabIndex="91"
+                          Visibility="{Binding HighlightMatchesVisible, Converter={StaticResource BoolToVisibilityConverter}}"/>
                 <CheckBox Content="{l:Loc Key='Main_HighlightGroups'}" Margin="6,3"                                  
-                            IsChecked="{Binding HighlightCaptureGroups}"
-                            IsEnabled="{Binding Path=IsHighlightGroupsEnabled}"
-                            ToolTip="{l:Loc Key='Main_HighlightRegularExpressionGroups'}"
-                            TabIndex="92"/>
-                <StackPanel Orientation="Horizontal">
+                          IsChecked="{Binding HighlightCaptureGroups}"
+                          IsEnabled="{Binding Path=IsHighlightGroupsEnabled}"
+                          ToolTip="{l:Loc Key='Main_HighlightRegularExpressionGroups'}"
+                          TabIndex="92"
+                          Visibility="{Binding HighlightGroupsVisible, Converter={StaticResource BoolToVisibilityConverter}}"/>
+                <StackPanel Orientation="Horizontal"
+                            Visibility="{Binding ShowContextLinesVisible, Converter={StaticResource BoolToVisibilityConverter}}">
                     <CheckBox Content="{l:Loc Key='Main_ContextShowLines'}" Name="cbShowContext" Margin="6,3,3,3" HorizontalAlignment="Center"
                               ToolTip="{l:Loc Key='Main_ContextChangesWillBeAppliedInNextSearch'}"
                               IsChecked="{Binding Path=ShowLinesInContext}"
                               TabIndex="93"/>
-                    <TextBox Margin="3,0,0,0"
+                    <TextBox Margin="3,3,0,0"
                              Text="{Binding Path=ContextLinesBefore, UpdateSourceTrigger=PropertyChanged}"
                              IsEnabled="{Binding ElementName=cbShowContext, Path=IsChecked}" 
                              TabIndex="94">
@@ -204,7 +300,8 @@
                         </TextBox.Width>
                     </TextBox>
                     <Label Content="{l:Loc Key='Main_ContextBeforeAnd'}" />
-                    <TextBox Text="{Binding Path=ContextLinesAfter, UpdateSourceTrigger=PropertyChanged}"
+                    <TextBox Margin="0,3,0,0"
+                             Text="{Binding Path=ContextLinesAfter, UpdateSourceTrigger=PropertyChanged}"
                              IsEnabled="{Binding ElementName=cbShowContext, Path=IsChecked}" 
                              TabIndex="95">
                         <TextBox.Width>
@@ -217,28 +314,31 @@
                     </TextBox>
                     <Label Content="{l:Loc Key='Main_ContextAfter'}" />
                 </StackPanel>
-                <StackPanel Orientation="Horizontal">
+                <StackPanel Orientation="Horizontal"
+                            Visibility="{Binding ZoomResultsTreeVisible, Converter={StaticResource BoolToVisibilityConverter}}">
                     <Label Margin="12,0,3,0" Content="{l:Loc Key='Main_Zoom'}" 
                            ToolTip="{l:Loc Key='Main_ChangesTheResultsTreeZoom'}"/>
                     <Slider Width="180" Margin="0,0,3,0" VerticalAlignment="Center"
                             Minimum="0.8" Maximum="2.0" LargeChange=".05" SmallChange=".01"
-                            Value="{Binding SearchResults.ResultsScale}" TabIndex="97">
+                            Value="{Binding ResultsViewModel.ResultsScale}" TabIndex="97">
                         <Slider.ToolTip>
-                            <ToolTip Content="{Binding SearchResults.ResultsScale}" ContentStringFormat="P1"/>
+                            <ToolTip Content="{Binding ResultsViewModel.ResultsScale}" ContentStringFormat="P1"/>
                         </Slider.ToolTip>
                     </Slider>
                 </StackPanel>
                 <CheckBox Content="{l:Loc Key='Main_WrapText'}" Margin="10,3,6,3"                                  
-                          IsChecked="{Binding SearchResults.WrapText}"
-                          TabIndex="98"/>
+                          IsChecked="{Binding ResultsViewModel.WrapText}"
+                          TabIndex="98"
+                          Visibility="{Binding WrapTextResultsTreeVisible, Converter={StaticResource BoolToVisibilityConverter}}"/>
             </WrapPanel>
 
             <DockPanel Margin="4,0" LastChildFill="True">
-                <GroupBox DockPanel.Dock="Top" Header="{l:Loc Key='Main_SearchInGroup'}">
+                <GroupBox DockPanel.Dock="Top" Header="{l:Loc Key='Main_SearchInGroup'}"
+                          Visibility="{Binding IsResultTreeMaximized, Converter={StaticResource InverseBoolToVisibilityConverter}}">
                     <Grid>
                         <Grid.RowDefinitions>
-                            <RowDefinition />
-                            <RowDefinition />
+                            <RowDefinition Height="Auto"/>
+                            <RowDefinition Height="Auto"/>
                         </Grid.RowDefinitions>
                         <Grid.ColumnDefinitions>
                             <ColumnDefinition Width="Auto" />
@@ -247,16 +347,27 @@
                             <ColumnDefinition Width="Auto" />
                             <ColumnDefinition Width="{Binding PatternColumnWidth, Converter={StaticResource GridLengthConverter}}" />
                         </Grid.ColumnDefinitions>
-                        <TextBlock Grid.Row="0" Grid.Column="0" Margin="3,8"
-                                   Text="{Binding SearchTextBoxLabel, FallbackValue='Folder:'}"
-                                   Style="{StaticResource LabelTextBlockStyle}" />
-                        <ComboBox x:Name="SearchText" Grid.Row="0" Grid.Column="1"
-                                  Margin="3,4" Padding="3" TabIndex="10"
+                        <Label Grid.Row="0" Grid.Column="0" Margin="3,1"
+                               Content="{Binding SearchTextBoxLabel, FallbackValue='Folder:'}"
+                               Style="{StaticResource ThemedLabel}" 
+                               Target="{Binding ElementName=searchPath}"/>
+                        <ComboBox x:Name="searchPath" Grid.Row="0" Grid.Column="1"
+                                  Margin="3,0,3,3" Padding="0" TabIndex="10"
                                   Text="{Binding FileOrFolderPath}"
+                                  Grid.IsSharedSizeScope="True"
                                   ItemsSource="{Binding FastPathBookmarks}"
-                                  IsEditable="True" />
+                                  TextSearch.TextPath="StringValue"
+                                  ItemTemplate="{StaticResource comboBoxPinDelTemplate}"
+                                  IsEditable="True"
+                                  PreviewDragOver="SearchPath_PreviewDragOver">
+                            <ComboBox.ItemContainerStyle>
+                                <Style TargetType="ComboBoxItem">
+                                    <Setter Property="HorizontalContentAlignment" Value="Stretch" />
+                                </Style>
+                            </ComboBox.ItemContainerStyle>
+                        </ComboBox>
                         <Button Grid.Row="0" Grid.Column="2"
-                                Margin="3,4"
+                                Margin="3,0,3,3"
                                 Command="{Binding BrowseCommand}"
                                 ToolTip="{l:Loc Key='Main_BrowseForFolderOrFiles'}" TabIndex="11" 
                                 Content="{l:Loc Key='Main_OpenFolder'}" >
@@ -273,212 +384,27 @@
                                   IsExpanded="{Binding IsFiltersExpanded}"
                                   TabIndex="14" SizeChanged="Expander_SizeChanged">
                             <Expander.Header>
-                                <StackPanel Margin="0,6" Orientation="Horizontal">
+                                <StackPanel Margin="0" Orientation="Horizontal">
                                     <Label x:Name="fileOptions" Content="{l:Loc Key='Main_More'}"
+                                           Margin="0,1,0,0"
                                            Style="{DynamicResource ThemedLabel}" />
                                     <TextBlock MaxWidth="{Binding MaxFileFiltersSummaryWidth}"
-                                               Margin="12,0,0,0"
+                                               Margin="12,1,0,0"
                                                Text="{Binding FileFiltersSummary}"
                                                Style="{StaticResource GrayTextBlockStyle}"
                                                TextTrimming="CharacterEllipsis" />
                                 </StackPanel>
                             </Expander.Header>
                             <Border BorderBrush="{DynamicResource GroupBox.Border}"
-                                    BorderThickness="1" CornerRadius="4">
-                                <WrapPanel SizeChanged="WrapPanel_SizeChanged">
-                                    <!--  left  -->
-                                    <StackPanel x:Name="LeftFileOptions" Margin="3,5,15,0">
-                                        <RadioButton Name="rbFilterAllSizes" Margin="3,0,3,3" GroupName="SizeFilter"
-                                                     TabIndex="20" Content="{l:Loc Key='Main_AllSizes'}"
-                                                     IsChecked="{Binding Path=UseFileSizeFilter, Converter={StaticResource ebc}, ConverterParameter=No}" />
-                                        <StackPanel Orientation="Horizontal">
-                                            <RadioButton Name="rbFilterSpecificSize" Margin="3,0,3,3" GroupName="SizeFilter"
-                                                         TabIndex="21" Content="{l:Loc Key='Main_SizeIs'}"
-                                                         IsChecked="{Binding Path=UseFileSizeFilter, Converter={StaticResource ebc}, ConverterParameter=Yes}" />
-                                            <TextBox Name="tbFileSizeFrom"
-                                                     Margin="3,0,3,3"
-                                                     IsEnabled="{Binding Path=IsSizeFilterSet}"
-                                                     TabIndex="22" GotFocus="TextBoxFocus"
-                                                     PreviewTextInput="TextBox_PreviewTextInput" DataObject.Pasting="TextBoxPasting">
-                                                <TextBox.Width>
-                                                    <MultiBinding Converter="{StaticResource TextBoxWidthConverter}" ConverterParameter="48" FallbackValue="48">
-                                                        <Binding RelativeSource="{RelativeSource Mode=Self}"/>
-                                                        <Binding Path="ApplicationFontFamily"/>
-                                                        <Binding Path="MainFormFontSize"/>
-                                                    </MultiBinding>
-                                                </TextBox.Width>
-                                                <TextBox.Text>
-                                                    <Binding Path="SizeFrom" UpdateSourceTrigger="PropertyChanged">
-                                                        <Binding.ValidationRules>
-                                                            <ExceptionValidationRule />
-                                                        </Binding.ValidationRules>
-                                                    </Binding>
-                                                </TextBox.Text>
-                                            </TextBox>
-                                            <TextBlock Margin="3,0,3,3" Text="{l:Loc Key='Main_SizeTo'}"
-                                                       Style="{StaticResource LabelTextBlockStyle}" />
-                                            <TextBox Name="tbFileSizeTo"
-                                                     Margin="3,0,3,3"
-                                                     IsEnabled="{Binding Path=IsSizeFilterSet}"
-                                                     TabIndex="23" GotFocus="TextBoxFocus"
-                                                     PreviewTextInput="TextBox_PreviewTextInput" DataObject.Pasting="TextBoxPasting">
-                                                <TextBox.Width>
-                                                    <MultiBinding Converter="{StaticResource TextBoxWidthConverter}" ConverterParameter="48" FallbackValue="48">
-                                                        <Binding RelativeSource="{RelativeSource Mode=Self}"/>
-                                                        <Binding Path="ApplicationFontFamily"/>
-                                                        <Binding Path="MainFormFontSize"/>
-                                                    </MultiBinding>
-                                                </TextBox.Width>
-                                                <TextBox.Text>
-                                                    <Binding Path="SizeTo" UpdateSourceTrigger="PropertyChanged">
-                                                        <Binding.ValidationRules>
-                                                            <ExceptionValidationRule />
-                                                        </Binding.ValidationRules>
-                                                    </Binding>
-                                                </TextBox.Text>
-                                            </TextBox>
-                                            <TextBlock Margin="3,0,3,3" Text="{l:Loc Key='Main_SizeKB'}"
-                                                       Style="{StaticResource LabelTextBlockStyle}" />
-                                        </StackPanel>
-                                        <CheckBox Name="cbIncludeSubfolders" Margin="3,0,3,3"
-                                                  IsChecked="{Binding Path=IncludeSubfolder}"
-                                                  TabIndex="24" Content="{l:Loc Key='Main_IncludeSubfolders'}" />
-                                        <StackPanel Orientation="Horizontal" Margin="26,0">
-                                            <Label Margin="3,0,3,3" Content="{l:Loc Key='Main_MaxDepth'}"
-                                                   Style="{DynamicResource ThemedLabel}"
-                                                   Target="{Binding ElementName=tbMaxDepth}"/>
-                                            <my:DepthTextBox x:Name="tbMaxDepth"  Margin="3,0,3,3"
-                                                     IsEnabled="{Binding Path=IncludeSubfolder}"
-                                                     TabIndex="25" GotFocus="TextBoxFocus"
-                                                     PreviewTextInput="TextBox_PreviewTextInput" DataObject.Pasting="TextBoxPasting">
-                                                <TextBox.Width>
-                                                    <MultiBinding Converter="{StaticResource TextBoxWidthConverter}" ConverterParameter="48" FallbackValue="48">
-                                                        <Binding RelativeSource="{RelativeSource Mode=Self}"/>
-                                                        <Binding Path="ApplicationFontFamily"/>
-                                                        <Binding Path="MainFormFontSize"/>
-                                                    </MultiBinding>
-                                                </TextBox.Width>
-                                                <TextBox.Text>
-                                                    <Binding Path="MaxSubfolderDepth" UpdateSourceTrigger="PropertyChanged"
-                                                             Converter="{StaticResource IntConverter}">
-                                                        <Binding.ValidationRules>
-                                                            <ExceptionValidationRule />
-                                                        </Binding.ValidationRules>
-                                                    </Binding>
-                                                </TextBox.Text>
-                                            </my:DepthTextBox>
-                                        </StackPanel>
-
-                                        <CheckBox Name="cbIncludeHiddenFolders" Margin="3,0,3,3"
-                                                  IsChecked="{Binding Path=IncludeHidden}"
-                                                  TabIndex="26" Content="{l:Loc Key='Main_IncludeHiddenFolders'}" />
-                                        <CheckBox Name="cbIncludeBinary" Margin="3,0,3,3"
-                                                  IsChecked="{Binding Path=IncludeBinary}"
-                                                  TabIndex="27" Content="{l:Loc Key='Main_IncludeBinaryFiles'}" />
-                                        <CheckBox Name="cbFollowSymlinks" Margin="3,0,3,3"
-                                                  IsChecked="{Binding Path=FollowSymlinks}"
-                                                  TabIndex="28" Content="{l:Loc Key='Main_FollowSymbolicLinks'}" />
-                                    </StackPanel>
-                                    <!--  middle  -->
-                                    <StackPanel x:Name="MiddleFileOptions" Margin="3,5,15,3" VerticalAlignment="Top"
-                                                Orientation="Vertical">
-                                        <StackPanel Margin="-6,0,0,0" HorizontalAlignment="Center" VerticalAlignment="Center"
-                                                    Orientation="Horizontal">
-                                            <RadioButton Margin="3,0,3,3" GroupName="DateFilter" Content="{l:Loc Key='Main_AllDates'}"
-                                                         TabIndex="30"
-                                                         IsChecked="{Binding Path=UseFileDateFilter, Converter={StaticResource ebc}, ConverterParameter=None}" />
-                                            <RadioButton Margin="3,0,3,3" GroupName="DateFilter" Content="{l:Loc Key='Main_Modified'}"
-                                                         TabIndex="31"
-                                                         IsChecked="{Binding Path=UseFileDateFilter, Converter={StaticResource ebc}, ConverterParameter=Modified}" />
-                                            <RadioButton Margin="3,0,3,3" GroupName="DateFilter" Content="{l:Loc Key='Main_Created'}"
-                                                         TabIndex="32"
-                                                         IsChecked="{Binding Path=UseFileDateFilter, Converter={StaticResource ebc}, ConverterParameter=Created}" />
-                                        </StackPanel>
-                                        <Grid>
-                                            <Grid.RowDefinitions>
-                                                <RowDefinition />
-                                                <RowDefinition />
-                                            </Grid.RowDefinitions>
-                                            <Grid.ColumnDefinitions>
-                                                <ColumnDefinition Width="Auto" />
-                                                <ColumnDefinition Width="Auto" />
-                                            </Grid.ColumnDefinitions>
-                                            <RadioButton Grid.Row="0" Grid.Column="0" Margin="3,0,3,6"
-                                                         GroupName="TimeRange" Content="{l:Loc Key='Main_DateFrom'}"
-                                                         IsChecked="{Binding Path=TypeOfTimeRangeFilter, Converter={StaticResource ebc}, ConverterParameter=Dates}"
-                                                         IsEnabled="{Binding Path=IsDateFilterSet}"
-                                                         TabIndex="33" />
-                                            <DatePicker x:Name="dpFrom" Grid.Row="0" Grid.Column="1"
-                                                        Margin="3,0,3,2" TabIndex="34"
-                                                        ToolTip="{l:Loc Key='Main_FromTheStartOfTheDay'}"
-                                                        CalendarStyle="{StaticResource CalendarStyle}"
-                                                        DisplayDate="{x:Static sys:DateTime.Now}"
-                                                        DisplayDateStart="{Binding MinStartDate}"
-                                                        SelectedDate="{Binding StartDate}"
-                                                        IsEnabled="{Binding IsDatesRangeSet}" />
-                                            <TextBlock Grid.Row="1" Grid.Column="0" Margin="20,0,0,6"
-                                                       Text="{l:Loc Key='Main_DateTo'}"
-                                                       Style="{StaticResource LabelTextBlockStyle}" />
-                                            <DatePicker x:Name="dpTo" Grid.Row="1" Grid.Column="1"
-                                                        Margin="3,0,3,2" TabIndex="35"
-                                                        ToolTip="{l:Loc Key='Main_ThroughTheEndOfTheDay'}"
-                                                        CalendarStyle="{StaticResource CalendarStyle}"
-                                                        DisplayDateStart="{Binding MinEndDate}"
-                                                        DisplayDate="{x:Static sys:DateTime.Now}"
-                                                        SelectedDate="{Binding EndDate}"
-                                                        IsEnabled="{Binding IsDatesRangeSet}" />
-                                        </Grid>
-                                        <StackPanel HorizontalAlignment="Center" VerticalAlignment="Center" Orientation="Horizontal">
-                                            <RadioButton Margin="3,0,3,3" GroupName="TimeRange" 
-                                                         Content="{l:Loc Key='Main_DatePast'}"
-                                                         IsChecked="{Binding Path=TypeOfTimeRangeFilter, Converter={StaticResource ebc}, ConverterParameter=Hours}"
-                                                         IsEnabled="{Binding Path=IsDateFilterSet}"
-                                                         TabIndex="36" />
-                                            <TextBox Margin="9,0,3,3"
-                                                     HorizontalAlignment="Center"
-                                                     IsEnabled="{Binding IsHoursRangeSet}"
-                                                     TabIndex="37" GotFocus="TextBoxFocus"
-                                                     PreviewTextInput="TextBox_PreviewTextInput" DataObject.Pasting="TextBoxPasting"
-                                                     Text="{Binding HoursFrom, UpdateSourceTrigger=PropertyChanged}">
-                                                <TextBox.Width>
-                                                    <MultiBinding Converter="{StaticResource TextBoxWidthConverter}" ConverterParameter="45" FallbackValue="45">
-                                                        <Binding RelativeSource="{RelativeSource Mode=Self}"/>
-                                                        <Binding Path="ApplicationFontFamily"/>
-                                                        <Binding Path="MainFormFontSize"/>
-                                                    </MultiBinding>
-                                                </TextBox.Width>
-                                            </TextBox>
-
-                                            <TextBlock Margin="3,0,3,3" Text="{l:Loc Key='Main_PastDateTo'}"
-                                                       Style="{StaticResource LabelTextBlockStyle}" />
-                                            <TextBox Margin="3,0,3,3"
-                                                     HorizontalAlignment="Center"
-                                                     IsEnabled="{Binding IsHoursRangeSet}"
-                                                     TabIndex="38" GotFocus="TextBoxFocus"
-                                                     PreviewTextInput="TextBox_PreviewTextInput" DataObject.Pasting="TextBoxPasting">
-                                                <TextBox.Width>
-                                                    <MultiBinding Converter="{StaticResource TextBoxWidthConverter}" ConverterParameter="45" FallbackValue="45">
-                                                        <Binding RelativeSource="{RelativeSource Mode=Self}"/>
-                                                        <Binding Path="ApplicationFontFamily"/>
-                                                        <Binding Path="MainFormFontSize"/>
-                                                    </MultiBinding>
-                                                </TextBox.Width>
-                                                <TextBox.Text>
-                                                    <Binding Path="HoursTo" UpdateSourceTrigger="PropertyChanged">
-                                                        <Binding.ValidationRules>
-                                                            <ExceptionValidationRule />
-                                                        </Binding.ValidationRules>
-                                                    </Binding>
-                                                </TextBox.Text>
-                                            </TextBox>
-                                            <TextBlock Margin="3,0,3,3" Text="{l:Loc Key='Main_DatePastHours'}"
-                                                       Style="{StaticResource LabelTextBlockStyle}" />
-                                        </StackPanel>
-                                    </StackPanel>
-                                    <Border x:Name="SpacerFileOptions" />
-                                    <!--  right  -->
-                                    <Grid x:Name="RightFileOptions" Margin="3,5,3,3">
+                                    BorderThickness="1" CornerRadius="4"
+                                    Margin="0,4,0,0">
+                                <DockPanel>
+                                    <!--  right panel first so it has size precedence  -->
+                                    <Grid x:Name="RightFileOptions" DockPanel.Dock="Right"
+                                          Margin="3,5,3,3">
                                         <Grid.RowDefinitions>
+                                            <RowDefinition Height="Auto" />
+                                            <RowDefinition Height="Auto" />
                                             <RowDefinition Height="Auto" />
                                             <RowDefinition Height="Auto" />
                                             <RowDefinition Height="Auto" />
@@ -490,39 +416,73 @@
                                             <ColumnDefinition Width="Auto" />
                                         </Grid.ColumnDefinitions>
                                         <StackPanel Grid.Row="0" Grid.Column="0" Grid.ColumnSpan="2"
-                                                    Margin="3,0" HorizontalAlignment="Right">
-                                            <StackPanel Orientation="Horizontal">
-                                                <RadioButton Name="rbFileRegex" Margin="3,0,3,3" GroupName="FileSearchType"
-                                                             TabIndex="40" Content="{l:Loc Key='Main_PatternType_Regex'}"
-                                                             IsChecked="{Binding Path=TypeOfFileSearch, Converter={StaticResource ebc}, ConverterParameter=Regex}"
-                                                             ToolTip="{l:Loc Key='Main_ForExampleRegularExpession'}" />
-                                                <RadioButton Name="rbFileAsterisk" Margin="3,0,3,3" GroupName="FileSearchType"
-                                                             TabIndex="41" Content="{l:Loc Key='Main_PatternType_Asterisk'}"
-                                                             IsChecked="{Binding Path=TypeOfFileSearch, Converter={StaticResource ebc}, ConverterParameter=Asterisk}"
-                                                             ToolTip="{l:Loc Key='Main_ForExampleAsteriskPattern'}" />
-                                                <RadioButton Name="rbFileEverything" Margin="3,0,3,3" GroupName="FileSearchType"
-                                                             TabIndex="41" Content="{l:Loc Key='Main_PatternType_Everything'}"
-                                                             IsChecked="{Binding Path=TypeOfFileSearch, Converter={StaticResource ebc}, ConverterParameter=Everything}"
-                                                             ToolTip="{l:Loc Key='Main_EverythingIndexService'}"
-                                                             Visibility="{Binding Path=IsEverythingAvailable, Converter={StaticResource BoolToVisibilityConverter}}" />
-                                            </StackPanel>
+                                                    Margin="3,0" Orientation="Horizontal"
+                                                    HorizontalAlignment="Right">
+                                            <RadioButton Name="rbFileRegex" Margin="3,0,3,3" GroupName="FileSearchType"
+                                                            TabIndex="40" Content="{l:Loc Key='Main_PatternType_Regex'}"
+                                                            IsChecked="{Binding Path=TypeOfFileSearch, Converter={StaticResource ebc}, ConverterParameter=Regex}"
+                                                            ToolTip="{l:Loc Key='Main_ForExampleRegularExpession'}" />
+                                            <RadioButton Name="rbFileAsterisk" Margin="3,0,3,3" GroupName="FileSearchType"
+                                                            TabIndex="41" Content="{l:Loc Key='Main_PatternType_Asterisk'}"
+                                                            IsChecked="{Binding Path=TypeOfFileSearch, Converter={StaticResource ebc}, ConverterParameter=Asterisk}"
+                                                            ToolTip="{l:Loc Key='Main_ForExampleAsteriskPattern'}" />
+                                            <RadioButton Name="rbFileEverything" Margin="3,0,3,3" GroupName="FileSearchType"
+                                                            TabIndex="41" Content="{l:Loc Key='Main_PatternType_Everything'}"
+                                                            IsChecked="{Binding Path=TypeOfFileSearch, Converter={StaticResource ebc}, ConverterParameter=Everything}"
+                                                            ToolTip="{l:Loc Key='Main_EverythingIndexService'}"
+                                                            Visibility="{Binding Path=IsEverythingAvailable, Converter={StaticResource BoolToVisibilityConverter}}" />
                                         </StackPanel>
-                                        <CheckBox Grid.Row="1" Grid.Column="0" Margin="3,3,3,6"
+                                        <DockPanel Grid.Row="1" Grid.Column="0" Grid.ColumnSpan="2"
+                                                   LastChildFill="True">
+                                            <CheckBox DockPanel.Dock="Right" Margin="6,0"
+                                                      IsChecked="{Binding UseGitignore}"
+                                                      Content="{l:Loc Key='Main_UseGitignore'}" 
+                                                      TabIndex="43"
+                                                      ToolTip="{l:Loc Key='Main_UseGitignoreToFilterFiles'}" 
+                                                      Visibility="{Binding CompositeUseGitIgnoreVisible, Converter={StaticResource BoolToVisibilityConverter}}" />
+                                            <Label DockPanel.Dock="Left" Margin="3,0"
+                                                   Content="{l:Loc Key='Main_Filter'}" 
+                                                   Style="{DynamicResource ThemedLabel}"
+                                                   Target="{Binding ElementName=cbIgnoreFilter}"/>
+                                            <ComboBox Name="cbIgnoreFilter" 
+                                                      Margin="3,0" 
+                                                      TabIndex="42"
+                                                      DisplayMemberPath="Name" SelectedValuePath="."
+                                                      ItemsSource="{Binding Path=IgnoreFilterList}"
+                                                      SelectedValue="{Binding Path=IgnoreFilter}">
+                                                <ComboBox.ItemContainerStyle>
+                                                    <Style TargetType="{x:Type ComboBoxItem}">
+                                                        <Setter Property="HorizontalContentAlignment" Value="Left" />
+                                                    </Style>
+                                                </ComboBox.ItemContainerStyle>
+                                                <i:Interaction.Triggers>
+                                                    <i:EventTrigger EventName="DropDownOpened">
+                                                        <i:InvokeCommandAction Command="{Binding FilterComboBoxDropDownCommand}"/>
+                                                    </i:EventTrigger>
+                                                </i:Interaction.Triggers>
+                                            </ComboBox>
+                                        </DockPanel>
+                                        <CheckBox Grid.Row="2" Grid.Column="0" Grid.ColumnSpan="2" 
+                                                  Margin="3" HorizontalAlignment="Left"
+                                                  IsChecked="{Binding Path=SkipRemoteCloudStorageFiles}"
+                                                  Content="{l:Loc Key='Main_SkipRemoteCloudStorageFiles'}"
+                                                  TabIndex="44" 
+                                                  Visibility="{Binding SkipCloudStorageVisible, Converter={StaticResource BoolToVisibilityConverter}}"/>
+                                        <CheckBox Grid.Row="3" Grid.Column="0" Grid.ColumnSpan="2" 
+                                                  Margin="3" HorizontalAlignment="Left"
                                                   IsChecked="{Binding SearchParallel}"
-                                                  Content="{l:Loc Key='Main_SearchParallel'}" TabIndex="42"
-                                                  ToolTip="{l:Loc Key='Main_SearchFilesInMultipleThreads'}" />
-                                        <CheckBox Grid.Row="1" Grid.Column="1" Margin="3,3,3,6"
-                                                  IsChecked="{Binding UseGitignore}"
-                                                  Content="{l:Loc Key='Main_UseGitignore'}" TabIndex="43"
-                                                  Visibility="{Binding IsGitInstalled, Converter={StaticResource BoolToVisibilityConverter}}"
-                                                  ToolTip="{l:Loc Key='Main_UseGitignoreToFilterFiles'}" />
-                                        <StackPanel Grid.Row="2" Grid.Column="0" Grid.ColumnSpan="2"
-                                                    Margin="3" VerticalAlignment="Center" Orientation="Horizontal">
+                                                  Content="{l:Loc Key='Main_SearchParallel'}" 
+                                                  ToolTip="{l:Loc Key='Main_SearchFilesInMultipleThreads'}"
+                                                  TabIndex="45"
+                                                  Visibility="{Binding SearchParallelVisible, Converter={StaticResource BoolToVisibilityConverter}}"/>
+                                        <StackPanel Grid.Row="4" Grid.Column="0" Grid.ColumnSpan="2"
+                                                    Margin="3" VerticalAlignment="Center" Orientation="Horizontal"
+                                                    Visibility="{Binding EncodingVisible, Converter={StaticResource BoolToVisibilityConverter}}">
                                             <Label Margin="3,0,3,3" Content="{l:Loc Key='Main_Encoding'}"
                                                    Style="{DynamicResource ThemedLabel}"
                                                    Target="{Binding ElementName=cbEncoding}"/>
                                             <ComboBox Name="cbEncoding" 
-                                                      Margin="3,0,3,3" HorizontalContentAlignment="Center" TabIndex="44"
+                                                      Margin="3,0,3,3" HorizontalContentAlignment="Center" TabIndex="46"
                                                       DisplayMemberPath="Key" SelectedValuePath="Value"
                                                       ItemsSource="{Binding Path=Encodings}"
                                                       SelectedValue="{Binding Path=CodePage}"
@@ -541,9 +501,15 @@
                                                 </ComboBox.Width>
                                             </ComboBox>
                                         </StackPanel>
-                                        <Grid Grid.Row="3" Grid.Column="0" Grid.ColumnSpan="2"
-                                                     Margin="4,3,3,3"
-                                                     Visibility="{Binding OptionsOnMainPanel, Converter={StaticResource InverseBoolToVisibilityConverter}}">
+                                        <Button Grid.Row="5" Grid.Column="1"
+                                                Margin="3,0,3,3"  Padding="8,3" HorizontalAlignment="Right"
+                                                HorizontalContentAlignment="Center" 
+                                                Content="{l:Loc Key='Main_ResetOptions'}"
+                                                Command="{Binding ResetOptionsCommand}"
+                                                TabIndex="47" />
+                                        <Grid Grid.Row="6" Grid.Column="0" Grid.ColumnSpan="2"
+                                              Margin="4,3,3,3"
+                                              Visibility="{Binding OptionsOnMainPanel, Converter={StaticResource InverseBoolToVisibilityConverter}}">
                                             <Grid.RowDefinitions>
                                                 <RowDefinition/>
                                                 <RowDefinition/>
@@ -556,37 +522,239 @@
                                             <CheckBox Grid.Row="0" Grid.Column="0" Margin="3,0,3,3"
                                                       IsChecked="{Binding CaseSensitive}"
                                                       IsEnabled="{Binding IsCaseSensitiveEnabled}"
-                                                      TabIndex="45" Content="{l:Loc Key='Main_CaseSensitive'}" />
+                                                      TabIndex="48" Content="{l:Loc Key='Main_CaseSensitive'}" />
                                             <CheckBox Grid.Row="1" Grid.Column="0" Margin="3,0,3,3"
                                                       IsChecked="{Binding WholeWord}"
                                                       IsEnabled="{Binding IsWholeWordEnabled}"
-                                                      TabIndex="46" Content="{l:Loc Key='Main_WholeWord'}" />
+                                                      TabIndex="49" Content="{l:Loc Key='Main_WholeWord'}" />
                                             <CheckBox Grid.Row="0" Grid.Column="1" Margin="3,0,3,3"
                                                       IsChecked="{Binding Multiline}"
                                                       IsEnabled="{Binding IsMultilineEnabled}"
-                                                      TabIndex="47" Content="{l:Loc Key='Main_Multiline'}" />
+                                                      TabIndex="49" Content="{l:Loc Key='Main_Multiline'}" />
                                             <CheckBox Grid.Row="1" Grid.Column="1" Margin="3,0,3,3"
                                                       IsChecked="{Binding Singleline}"
                                                       IsEnabled="{Binding IsSinglelineEnabled}"
-                                                      TabIndex="48" Content="{l:Loc Key='Main_DotAsNewline'}" />
+                                                      TabIndex="49" Content="{l:Loc Key='Main_DotAsNewline'}" />
                                             <CheckBox Grid.Row="2" Grid.Column="0" Margin="3,0,3,3"
                                                       IsChecked="{Binding BooleanOperators}"
                                                       IsEnabled="{Binding IsBooleanOperatorsEnabled}"
-                                                      TabIndex="48" Content="{l:Loc Key='Main_BooleanOperators'}" 
-                                                      ToolTip="{l:Loc Key='Main_CombineMultipleSearchPatternsUsingANDOrOR'}"/>
+                                                      TabIndex="49" Content="{l:Loc Key='Main_BooleanOperators'}" 
+                                                      ToolTip="{l:Loc Key='Main_CombineMultipleSearchPatternsUsingANDOrOR'}"
+                                                      Visibility="{Binding BooleanOperatorsVisible, Converter={StaticResource BoolToVisibilityConverter}}"/>
+                                            <CheckBox Grid.Row="2" Grid.Column="1" Margin="3,0,3,3"
+                                                      IsChecked="{Binding CaptureGroupSearch}"
+                                                      IsEnabled="{Binding Path=TypeOfFileSearch, Converter={StaticResource ebc}, ConverterParameter=Regex}"
+                                                      TabIndex="49" Content="{l:Loc Key='Main_CaptureGroupSearch'}" 
+                                                      ToolTip="{l:Loc Key='Main_UseCaptureGroupsFromPathsToMatch'}"
+                                                      Visibility="{Binding CaptureGroupSearchVisible, Converter={StaticResource BoolToVisibilityConverter}}"/>
                                         </Grid>
-                                        <Button Grid.Row="4" Grid.Column="1"
-                                                Margin="3,0,3,3" HorizontalAlignment="Right"
-                                                HorizontalContentAlignment="Center" 
-                                                Content="{l:Loc Key='Main_ResetOptions'}"
-                                                Command="{Binding ResetOptionsCommand}"
-                                                TabIndex="49" />
                                     </Grid>
-                                </WrapPanel>
+                                    <!-- Left and middle panels in the expander wrap for narrow windows -->
+                                    <WrapPanel DockPanel.Dock="Left">
+                                        <!--  left panel  -->
+                                        <StackPanel x:Name="LeftFileOptions" Margin="3,5,15,0">
+                                            <RadioButton Name="rbFilterAllSizes" Margin="3,0,3,3" GroupName="SizeFilter"
+                                                         TabIndex="20" Content="{l:Loc Key='Main_AllSizes'}"
+                                                         IsChecked="{Binding Path=UseFileSizeFilter, Converter={StaticResource ebc}, ConverterParameter=No}" 
+                                                         Visibility="{Binding SizeFilterVisible, Converter={StaticResource BoolToVisibilityConverter}}"/>
+                                            <StackPanel Orientation="Horizontal"
+                                                        Visibility="{Binding SizeFilterVisible, Converter={StaticResource BoolToVisibilityConverter}}">
+                                                <RadioButton Name="rbFilterSpecificSize" Margin="3,0,3,3" GroupName="SizeFilter"
+                                                             TabIndex="21" Content="{l:Loc Key='Main_SizeIs'}"
+                                                             IsChecked="{Binding Path=UseFileSizeFilter, Converter={StaticResource ebc}, ConverterParameter=Yes}" />
+                                                <TextBox Name="tbFileSizeFrom"
+                                                         Margin="3,0,3,3"
+                                                         IsEnabled="{Binding Path=IsSizeFilterSet}"
+                                                         TabIndex="22" GotFocus="TextBoxFocus"
+                                                         PreviewTextInput="TextBox_PreviewTextInput" DataObject.Pasting="TextBoxPasting">
+                                                    <TextBox.Width>
+                                                        <MultiBinding Converter="{StaticResource TextBoxWidthConverter}" ConverterParameter="48" FallbackValue="48">
+                                                            <Binding RelativeSource="{RelativeSource Mode=Self}"/>
+                                                            <Binding Path="ApplicationFontFamily"/>
+                                                            <Binding Path="MainFormFontSize"/>
+                                                        </MultiBinding>
+                                                    </TextBox.Width>
+                                                    <TextBox.Text>
+                                                        <Binding Path="SizeFrom" UpdateSourceTrigger="PropertyChanged">
+                                                            <Binding.ValidationRules>
+                                                                <ExceptionValidationRule />
+                                                            </Binding.ValidationRules>
+                                                        </Binding>
+                                                    </TextBox.Text>
+                                                </TextBox>
+                                                <Label Margin="3,0,3,3" Content="{l:Loc Key='Main_SizeTo'}"
+                                                       Style="{StaticResource ThemedLabel}" />
+                                                <TextBox Name="tbFileSizeTo"
+                                                         Margin="3,0,3,3"
+                                                         IsEnabled="{Binding Path=IsSizeFilterSet}"
+                                                         TabIndex="23" GotFocus="TextBoxFocus"
+                                                         PreviewTextInput="TextBox_PreviewTextInput" DataObject.Pasting="TextBoxPasting">
+                                                    <TextBox.Width>
+                                                        <MultiBinding Converter="{StaticResource TextBoxWidthConverter}" ConverterParameter="48" FallbackValue="48">
+                                                            <Binding RelativeSource="{RelativeSource Mode=Self}"/>
+                                                            <Binding Path="ApplicationFontFamily"/>
+                                                            <Binding Path="MainFormFontSize"/>
+                                                        </MultiBinding>
+                                                    </TextBox.Width>
+                                                    <TextBox.Text>
+                                                        <Binding Path="SizeTo" UpdateSourceTrigger="PropertyChanged">
+                                                            <Binding.ValidationRules>
+                                                                <ExceptionValidationRule />
+                                                            </Binding.ValidationRules>
+                                                        </Binding>
+                                                    </TextBox.Text>
+                                                </TextBox>
+                                                <Label Margin="3,0,3,3" Content="{l:Loc Key='Main_SizeKB'}"
+                                                       Style="{StaticResource ThemedLabel}" />
+                                            </StackPanel>
+                                            <CheckBox Name="cbIncludeSubfolders" Margin="3,0,3,3"
+                                                      IsChecked="{Binding Path=IncludeSubfolder}"
+                                                      TabIndex="24" Content="{l:Loc Key='Main_IncludeSubfolders'}"
+                                                      Visibility="{Binding SubfoldersFilterVisible, Converter={StaticResource BoolToVisibilityConverter}}"/>
+                                            <StackPanel Orientation="Horizontal" Margin="26,0"
+                                                        Visibility="{Binding SubfoldersFilterVisible, Converter={StaticResource BoolToVisibilityConverter}}">
+                                                <Label Margin="3,0,3,3" Content="{l:Loc Key='Main_MaxDepth'}"
+                                                       Style="{DynamicResource ThemedLabel}"
+                                                       Target="{Binding ElementName=tbMaxDepth}"/>
+                                                <my:DepthTextBox x:Name="tbMaxDepth"  Margin="3,0,3,3"
+                                                         IsEnabled="{Binding Path=IncludeSubfolder}"
+                                                         TabIndex="25" GotFocus="TextBoxFocus"
+                                                         PreviewTextInput="TextBox_PreviewTextInput" DataObject.Pasting="TextBoxPasting">
+                                                    <TextBox.Width>
+                                                        <MultiBinding Converter="{StaticResource TextBoxWidthConverter}" ConverterParameter="48" FallbackValue="48">
+                                                            <Binding RelativeSource="{RelativeSource Mode=Self}"/>
+                                                            <Binding Path="ApplicationFontFamily"/>
+                                                            <Binding Path="MainFormFontSize"/>
+                                                        </MultiBinding>
+                                                    </TextBox.Width>
+                                                    <TextBox.Text>
+                                                        <Binding Path="MaxSubfolderDepth" UpdateSourceTrigger="PropertyChanged"
+                                                                 Converter="{StaticResource IntConverter}">
+                                                            <Binding.ValidationRules>
+                                                                <ExceptionValidationRule />
+                                                            </Binding.ValidationRules>
+                                                        </Binding>
+                                                    </TextBox.Text>
+                                                </my:DepthTextBox>
+                                            </StackPanel>
+
+                                            <CheckBox Name="cbIncludeHiddenFolders" Margin="3,0,3,3"
+                                                      IsChecked="{Binding Path=IncludeHidden}"
+                                                      TabIndex="26" Content="{l:Loc Key='Main_IncludeHiddenFolders'}"
+                                                      Visibility="{Binding HiddenFilterVisible, Converter={StaticResource BoolToVisibilityConverter}}"/>
+                                            <CheckBox Name="cbIncludeBinary" Margin="3,0,3,3"
+                                                      IsChecked="{Binding Path=IncludeBinary}"
+                                                      TabIndex="27" Content="{l:Loc Key='Main_IncludeBinaryFiles'}"
+                                                      Visibility="{Binding BinaryFilterVisible, Converter={StaticResource BoolToVisibilityConverter}}"/>
+                                            <CheckBox Name="cbFollowSymlinks" Margin="3,0,3,3"
+                                                      IsChecked="{Binding Path=FollowSymlinks}"
+                                                      TabIndex="28" Content="{l:Loc Key='Main_FollowSymbolicLinks'}"
+                                                      Visibility="{Binding SymbolicLinkFilterVisible, Converter={StaticResource BoolToVisibilityConverter}}"/>
+                                        </StackPanel>
+                                        <!--  middle panel -->
+                                        <StackPanel x:Name="MiddleFileOptions" Margin="3,5,15,3" VerticalAlignment="Top"
+                                                    Orientation="Vertical"
+                                                    Visibility="{Binding DateFilterVisible, Converter={StaticResource BoolToVisibilityConverter}}">
+                                            <StackPanel Margin="0,0,0,0" HorizontalAlignment="Left" VerticalAlignment="Center"
+                                                        Orientation="Horizontal">
+                                                <RadioButton Margin="3,0,3,3" GroupName="DateFilter" Content="{l:Loc Key='Main_AllDates'}"
+                                                             TabIndex="30"
+                                                             IsChecked="{Binding Path=UseFileDateFilter, Converter={StaticResource ebc}, ConverterParameter=None}" />
+                                                <RadioButton Margin="3,0,3,3" GroupName="DateFilter" Content="{l:Loc Key='Main_Modified'}"
+                                                             TabIndex="31"
+                                                             IsChecked="{Binding Path=UseFileDateFilter, Converter={StaticResource ebc}, ConverterParameter=Modified}" />
+                                                <RadioButton Margin="3,0,3,3" GroupName="DateFilter" Content="{l:Loc Key='Main_Created'}"
+                                                             TabIndex="32"
+                                                             IsChecked="{Binding Path=UseFileDateFilter, Converter={StaticResource ebc}, ConverterParameter=Created}" />
+                                            </StackPanel>
+                                            <Grid Margin="8,0,0,0">
+                                                <Grid.RowDefinitions>
+                                                    <RowDefinition />
+                                                    <RowDefinition />
+                                                </Grid.RowDefinitions>
+                                                <Grid.ColumnDefinitions>
+                                                    <ColumnDefinition Width="Auto" />
+                                                    <ColumnDefinition Width="Auto" />
+                                                </Grid.ColumnDefinitions>
+                                                <RadioButton Grid.Row="0" Grid.Column="0" Margin="3,0,6,6"
+                                                             GroupName="TimeRange" Content="{l:Loc Key='Main_DateFrom'}"
+                                                             IsChecked="{Binding Path=TypeOfTimeRangeFilter, Converter={StaticResource ebc}, ConverterParameter=Dates}"
+                                                             IsEnabled="{Binding Path=IsDateFilterSet}"
+                                                             TabIndex="33" />
+                                                <DatePicker x:Name="dpFrom" Grid.Row="0" Grid.Column="1"
+                                                            Margin="3,0,3,2" TabIndex="34"
+                                                            ToolTip="{l:Loc Key='Main_FromTheStartOfTheDay'}"
+                                                            CalendarStyle="{StaticResource CalendarStyle}"
+                                                            DisplayDate="{x:Static sys:DateTime.Now}"
+                                                            DisplayDateStart="{Binding MinStartDate}"
+                                                            SelectedDate="{Binding StartDate}"
+                                                            IsEnabled="{Binding IsDatesRangeSet}" />
+                                                    <Label Grid.Row="1" Grid.Column="0" Margin="3,0,6,6"
+                                                           HorizontalAlignment="Right"
+                                                           Content="{l:Loc Key='Main_DateTo'}"
+                                                           Style="{StaticResource ThemedLabel}" />
+                                                <DatePicker x:Name="dpTo" Grid.Row="1" Grid.Column="1"
+                                                            Margin="3,0,3,2" TabIndex="35"
+                                                            ToolTip="{l:Loc Key='Main_ThroughTheEndOfTheDay'}"
+                                                            CalendarStyle="{StaticResource CalendarStyle}"
+                                                            DisplayDateStart="{Binding MinEndDate}"
+                                                            DisplayDate="{x:Static sys:DateTime.Now}"
+                                                            SelectedDate="{Binding EndDate}"
+                                                            IsEnabled="{Binding IsDatesRangeSet}" />
+                                            </Grid>
+                                            <StackPanel Margin="8,0,0,0" Orientation="Horizontal">
+                                                <RadioButton Margin="3,0,3,3" GroupName="TimeRange" 
+                                                             Content="{l:Loc Key='Main_DatePast'}"
+                                                             IsChecked="{Binding Path=TypeOfTimeRangeFilter, Converter={StaticResource ebc}, ConverterParameter=Hours}"
+                                                             IsEnabled="{Binding Path=IsDateFilterSet}"
+                                                             TabIndex="36" />
+                                                <TextBox Margin="12,0,3,3"
+                                                         HorizontalAlignment="Center"
+                                                         IsEnabled="{Binding IsHoursRangeSet}"
+                                                         TabIndex="37" GotFocus="TextBoxFocus"
+                                                         PreviewTextInput="TextBox_PreviewTextInput" DataObject.Pasting="TextBoxPasting"
+                                                         Text="{Binding HoursFrom, UpdateSourceTrigger=PropertyChanged}">
+                                                    <TextBox.Width>
+                                                        <MultiBinding Converter="{StaticResource TextBoxWidthConverter}" ConverterParameter="45" FallbackValue="45">
+                                                            <Binding RelativeSource="{RelativeSource Mode=Self}"/>
+                                                            <Binding Path="ApplicationFontFamily"/>
+                                                            <Binding Path="MainFormFontSize"/>
+                                                        </MultiBinding>
+                                                    </TextBox.Width>
+                                                </TextBox>
+
+                                                <Label Margin="3,0,3,3" Content="{l:Loc Key='Main_PastDateTo'}"
+                                                       Style="{StaticResource ThemedLabel}" />
+                                                <TextBox Margin="3,0,3,3"
+                                                         HorizontalAlignment="Center"
+                                                         IsEnabled="{Binding IsHoursRangeSet}"
+                                                         TabIndex="38" GotFocus="TextBoxFocus"
+                                                         PreviewTextInput="TextBox_PreviewTextInput" DataObject.Pasting="TextBoxPasting">
+                                                    <TextBox.Width>
+                                                        <MultiBinding Converter="{StaticResource TextBoxWidthConverter}" ConverterParameter="45" FallbackValue="45">
+                                                            <Binding RelativeSource="{RelativeSource Mode=Self}"/>
+                                                            <Binding Path="ApplicationFontFamily"/>
+                                                            <Binding Path="MainFormFontSize"/>
+                                                        </MultiBinding>
+                                                    </TextBox.Width>
+                                                    <TextBox.Text>
+                                                        <Binding Path="HoursTo" UpdateSourceTrigger="PropertyChanged">
+                                                            <Binding.ValidationRules>
+                                                                <ExceptionValidationRule />
+                                                            </Binding.ValidationRules>
+                                                        </Binding>
+                                                    </TextBox.Text>
+                                                </TextBox>
+                                                <Label Margin="3,0,3,3" Content="{l:Loc Key='Main_DatePastHours'}"
+                                                       Style="{StaticResource ThemedLabel}" />
+                                            </StackPanel>
+                                        </StackPanel>
+                                    </WrapPanel>
+                                </DockPanel>
                             </Border>
                         </Expander>
                         <!--  must be *after* the Expander so they are higher in the z-order  -->
-                        <Label Grid.Row="0" Grid.Column="3" Margin="3"
+                        <Label Grid.Row="0" Grid.Column="3" Margin="3,1"
                                Content="{l:Loc Key='Main_PatternsToMatch'}"
                                ToolTip="{l:Loc Key='Main_IncludeFilesByNameOrType'}"
                                Style="{DynamicResource ThemedLabel}"
@@ -594,173 +762,220 @@
                                Target="{Binding ElementName=tbFilePattern}"
                                Visibility="{Binding IsEverythingSearchMode, Converter={StaticResource InverseBoolToVisibilityConverter}}" />
                         <ComboBox Name="tbFilePattern" Grid.Row="0" Grid.Column="4"
-                                  Margin="3,4" my:DiginesisHelpProvider.HelpKeyword="SearchReplace"
+                                  Margin="3,0,3,3" 
+                                  Style="{StaticResource ComboBoxBaseStyle}"
+                                  my:DiginesisHelpProvider.HelpKeyword="SearchReplace"
                                   my:DiginesisHelpProvider.HelpNavigator="Topic"
                                   my:DiginesisHelpProvider.ShowHelp="True" TabIndex="12"
                                   Text="{Binding Path=FilePattern, UpdateSourceTrigger=PropertyChanged}"
                                   ItemsSource="{Binding Path=FastFileMatchBookmarks}"
-                                  GotFocus="TextBoxFocus" IsEditable="True"
-                                  Visibility="{Binding IsEverythingSearchMode, Converter={StaticResource InverseBoolToVisibilityConverter}}" />
+                                  TextSearch.TextPath="StringValue"
+                                  ItemTemplate="{StaticResource comboBoxPinDelTemplate}"
+                                  GotFocus="TextBoxFocus" IsEditable="True" 
+                                  Grid.IsSharedSizeScope="True"
+                                  Visibility="{Binding IsEverythingSearchMode, Converter={StaticResource InverseBoolToVisibilityConverter}}">
+                            <ComboBox.ItemContainerStyle>
+                                <Style TargetType="ComboBoxItem">
+                                    <Setter Property="HorizontalContentAlignment" Value="Stretch" />
+                                </Style>
+                            </ComboBox.ItemContainerStyle>
+                        </ComboBox>
                         <CheckBox Name="cbIncludeArchives" Grid.Row="1" Grid.Column="1"
-                                  Grid.ColumnSpan="2" Margin="3,10,8,3" HorizontalAlignment="Right"
+                                  Grid.ColumnSpan="2" Margin="3,6,8,0" HorizontalAlignment="Right"
                                   VerticalAlignment="Top"
                                   IsChecked="{Binding Path=IncludeArchive}"
                                   TabIndex="13" Content="{l:Loc Key='Main_SearchInArchives'}"
-                                  Visibility="{Binding CanSearchArchives, Converter={StaticResource BoolToVisibilityConverter}}" />
+                                  Visibility="{Binding CompositeSearchInArchivesVisible, Converter={StaticResource BoolToVisibilityConverter}}" />
                         <Label Name="pathsToIgnoreLabel" Grid.Row="1" Grid.Column="3"
-                               Margin="3,8" HorizontalAlignment="Right" VerticalAlignment="Top"
+                               Margin="3,3,3,0" HorizontalAlignment="Right" VerticalAlignment="Top"
                                Content="{l:Loc Key='Main_PatternsToExclude'}"
                                ToolTip="{l:Loc Key='Main_ExcludeFilesByTypeAndFoldersByName'}"
                                Style="{DynamicResource ThemedLabel}"
                                Target="{Binding ElementName=tbFilePatternIgnore}"
                                Visibility="{Binding IsEverythingSearchMode, Converter={StaticResource InverseBoolToVisibilityConverter}}" />
                         <ComboBox Name="tbFilePatternIgnore" Grid.Row="1" Grid.Column="4"
-                                  Margin="3,4,3,0" VerticalAlignment="Top"
+                                  Margin="3,3,3,0" VerticalAlignment="Top"
                                   Height="{Binding ElementName=tbFilePattern, Path=ActualHeight}"
                                   my:DiginesisHelpProvider.HelpKeyword="SearchReplace"
                                   my:DiginesisHelpProvider.HelpNavigator="Topic"
                                   my:DiginesisHelpProvider.ShowHelp="True" TabIndex="14"
                                   Text="{Binding Path=FilePatternIgnore, UpdateSourceTrigger=PropertyChanged}"
                                   ItemsSource="{Binding Path=FastFileNotMatchBookmarks}"
+                                  TextSearch.TextPath="StringValue"
+                                  ItemTemplate="{StaticResource comboBoxPinDelTemplate}"
                                   GotFocus="TextBoxFocus" IsEditable="True"
-                                  Visibility="{Binding IsEverythingSearchMode, Converter={StaticResource InverseBoolToVisibilityConverter}}" />
+                                  Grid.IsSharedSizeScope="True"
+                                  Visibility="{Binding IsEverythingSearchMode, Converter={StaticResource InverseBoolToVisibilityConverter}}">
+                            <ComboBox.ItemContainerStyle>
+                                <Style TargetType="ComboBoxItem">
+                                    <Setter Property="HorizontalContentAlignment" Value="Stretch" />
+                                </Style>
+                            </ComboBox.ItemContainerStyle>
+                        </ComboBox>
                     </Grid>
                 </GroupBox>
-                <GroupBox Header="{l:Loc Key='Main_SearchGroup'}" DockPanel.Dock="Top">
+                <GroupBox Header="{l:Loc Key='Main_SearchGroup'}" DockPanel.Dock="Top"
+                          Visibility="{Binding IsResultTreeMaximized, Converter={StaticResource InverseBoolToVisibilityConverter}}">
                     <DockPanel Height="Auto" HorizontalAlignment="Stretch" VerticalAlignment="Stretch">
-                        <DockPanel Margin="0,0,0,5" DockPanel.Dock="Top">
-                            <Button Margin="3,0" Padding="8,3"
-                                    Content="{l:Loc Key='Main_TestExpression'}"
-                                    Command="{Binding TestCommand}"
-                                    DockPanel.Dock="Right" TabIndex="56" />
-                            <CheckBox Margin="0,0,3,0"
-                                      ToolTip="{Binding IsFolderBookmarkedTooltip}"
-                                      Template="{DynamicResource PlusMetroButtonTemplate}"
-                                      IsChecked="{Binding IsFolderBookmarked}"
-                                      Command="{Binding FolderBookmarkAddCommand}"
-                                      DockPanel.Dock="Right" TabIndex="55" 
-                                      Visibility="{Binding IsEverythingSearchMode, Converter={StaticResource InverseBoolToVisibilityConverter}}"/>
-                            <CheckBox Margin="0,0,3,0"
-                                      ToolTip="{Binding IsBookmarkedTooltip}"
-                                      Template="{DynamicResource FavsMetroButtonTemplate}"
-                                      IsChecked="{Binding IsBookmarked}"
-                                      Command="{Binding BookmarkAddCommand}"
-                                      DockPanel.Dock="Right" TabIndex="54" />
-                            <StackPanel Margin="75,0,0,0" Orientation="Horizontal" DockPanel.Dock="Left">
-                                <RadioButton Margin="3" Content="{l:Loc Key='Main_SearchType_Regex'}" GroupName="SearchRegex"
+                        <Grid Margin="0,0,0,3" DockPanel.Dock="Top">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="*"/>
+                                <ColumnDefinition Width="*"/>
+                            </Grid.ColumnDefinitions>
+                            <WrapPanel Margin="0,3,0,0" Orientation="Horizontal" Grid.Column="0">
+                                <RadioButton Margin="3" Content="{l:Loc Key='Main_SearchType_Regex'}" GroupName="SearchType"
                                              IsChecked="{Binding TypeOfSearch, ConverterParameter=Regex, Converter={StaticResource ebc}}"
-                                             ToolTip="{l:Loc Key='Main_SearchType_RegularExpressionSearch'}" TabIndex="50" />
-                                <RadioButton Margin="3" Content="{l:Loc Key='Main_SearchType_XPath'}" GroupName="SearchXPath"
+                                             ToolTip="{l:Loc Key='Main_SearchType_RegularExpressionSearch'}" TabIndex="50" 
+                                             Visibility="{Binding SearchTypeRegexVisible, Converter={StaticResource BoolToVisibilityConverter}}"/>
+                                <RadioButton Margin="3" Content="{l:Loc Key='Main_SearchType_XPath'}" GroupName="SearchType"
                                              IsChecked="{Binding TypeOfSearch, ConverterParameter=XPath, Converter={StaticResource ebc}}"
-                                             ToolTip="{l:Loc Key='Main_SearchType_XPathSearchXMLDocumentsOnly'}" TabIndex="51" />
-                                <RadioButton Margin="3" Content="{l:Loc Key='Main_SearchType_Text'}" GroupName="SearchText"
+                                             ToolTip="{l:Loc Key='Main_SearchType_XPathSearchXMLDocumentsOnly'}" TabIndex="51" 
+                                             Visibility="{Binding SearchTypeXPathVisible, Converter={StaticResource BoolToVisibilityConverter}}"/>
+                                <RadioButton Margin="3" Content="{l:Loc Key='Main_SearchType_Text'}" GroupName="SearchType"
                                              IsChecked="{Binding TypeOfSearch, ConverterParameter=PlainText, Converter={StaticResource ebc}}"
-                                             ToolTip="{l:Loc Key='Main_SearchType_PlainTextSearch'}" TabIndex="52" />
-                                <RadioButton Margin="3" Content="{l:Loc Key='Main_SearchType_Phonetic'}" GroupName="SearchSoundex"
+                                             ToolTip="{l:Loc Key='Main_SearchType_PlainTextSearch'}" TabIndex="52" 
+                                             Visibility="{Binding SearchTypeTextVisible, Converter={StaticResource BoolToVisibilityConverter}}"/>
+                                <RadioButton Margin="3" Content="{l:Loc Key='Main_SearchType_Phonetic'}" GroupName="SearchType"
                                              IsChecked="{Binding TypeOfSearch, ConverterParameter=Soundex, Converter={StaticResource ebc}}"
-                                             ToolTip="{l:Loc Key='Main_SearchType_PhoneticSearch'}" TabIndex="53" />
-                                <RadioButton Margin="3" Content="{l:Loc Key='Main_SearchType_Hex'}" GroupName="SearchHex"
+                                             ToolTip="{l:Loc Key='Main_SearchType_PhoneticSearch'}" TabIndex="53" 
+                                             Visibility="{Binding SearchTypePhoneticVisible, Converter={StaticResource BoolToVisibilityConverter}}"/>
+                                <RadioButton Margin="3" Content="{l:Loc Key='Main_SearchType_Hex'}" GroupName="SearchType"
                                              IsChecked="{Binding TypeOfSearch, ConverterParameter=Hex, Converter={StaticResource ebc}}"
-                                             ToolTip="{l:Loc Key='Main_SearchType_ReadFileAsBinaryAndSearchForBytes'}" TabIndex="54" />
-                            </StackPanel>
-                            <Label HorizontalAlignment="Center" Content="{Binding ValidationMessage}" />
-                        </DockPanel>
-                        <StackPanel Margin="0,5,0,3" DockPanel.Dock="Bottom"
+                                             ToolTip="{l:Loc Key='Main_SearchType_ReadFileAsBinaryAndSearchForBytes'}" TabIndex="54" 
+                                             Visibility="{Binding SearchTypeByteVisible, Converter={StaticResource BoolToVisibilityConverter}}"/>
+                            </WrapPanel>
+                            <DockPanel Grid.Column="1">
+                                <Button Margin="3,0" Padding="8,3"
+                                        Content="{l:Loc Key='Main_TestExpression'}"
+                                        Command="{Binding TestCommand}"
+                                        DockPanel.Dock="Right" TabIndex="56" 
+                                        Visibility="{Binding TestExpressionVisible, Converter={StaticResource BoolToVisibilityConverter}}"/>
+                                <CheckBox Margin="0,0,3,0"
+                                          ToolTip="{Binding IsFolderBookmarkedTooltip}"
+                                          Template="{DynamicResource PlusMetroButtonTemplate}"
+                                          IsChecked="{Binding IsFolderBookmarked}"
+                                          Command="{Binding FolderBookmarkAddCommand}"
+                                          DockPanel.Dock="Right" TabIndex="55" 
+                                          Visibility="{Binding CompositeBookmarksVisible, Converter={StaticResource BoolToVisibilityConverter}}"/>
+                                <CheckBox Margin="0,0,3,0"
+                                          ToolTip="{Binding IsBookmarkedTooltip}"
+                                          Template="{DynamicResource FavsMetroButtonTemplate}"
+                                          IsChecked="{Binding IsBookmarked}"
+                                          Command="{Binding BookmarkAddCommand}"
+                                          DockPanel.Dock="Right" TabIndex="54"
+                                          Visibility="{Binding BookmarksVisible, Converter={StaticResource BoolToVisibilityConverter}}"/>
+                                <Border HorizontalAlignment="Center"
+                                        Background="#12FFFFFF" CornerRadius="3" 
+                                        Visibility="{Binding HasValidationMessage, Converter={StaticResource BoolToVisibilityConverter}}">
+                                    <Label HorizontalAlignment="Center" Padding="12,3" 
+                                           Content="{Binding ValidationMessage}"
+                                           ToolTip="{Binding ValidationToolTip}"
+                                           Foreground="{Binding IsValidPattern, Converter={StaticResource validationColor}}"
+                                           Background="Transparent"
+                                           Visibility="{Binding HasValidationMessage, Converter={StaticResource BoolToVisibilityConverter}}"/>
+                                </Border>
+                            </DockPanel>
+                        </Grid>
+                        <StackPanel Margin="0,5,0,0" DockPanel.Dock="Bottom"
                                     Visibility="{Binding OptionsOnMainPanel, Converter={StaticResource BoolToVisibilityConverter}}">
-                            <WrapPanel Margin="77,0,0,0" Orientation="Horizontal">
-                                <CheckBox Margin="3"
+                            <WrapPanel Margin="0,0,0,0" Orientation="Horizontal">
+                                <CheckBox Margin="3,1"
                                           IsChecked="{Binding CaseSensitive}"
                                           IsEnabled="{Binding IsCaseSensitiveEnabled}"
                                           TabIndex="70" Content="{l:Loc Key='Main_CaseSensitive'}" />
-                                <CheckBox Margin="3"
+                                <CheckBox Margin="3,1"
                                           IsChecked="{Binding WholeWord}"
                                           IsEnabled="{Binding IsWholeWordEnabled}"
                                           TabIndex="71" Content="{l:Loc Key='Main_WholeWord'}" />
-                                <CheckBox Margin="3"
+                                <CheckBox Margin="3,1"
                                           IsChecked="{Binding Multiline}"
                                           IsEnabled="{Binding IsMultilineEnabled}"
                                           TabIndex="72" Content="{l:Loc Key='Main_Multiline'}" />
-                                <CheckBox Margin="3"
+                                <CheckBox Margin="3,1"
                                           IsChecked="{Binding Singleline}"
                                           IsEnabled="{Binding IsSinglelineEnabled}"
-                                          TabIndex="73" Content="{l:Loc Key='Main_DotAsNewline'}" />
-                                <CheckBox Margin="3"
+                                          TabIndex="73" Content="{l:Loc Key='Main_DotAsNewline'}" 
+                                          Visibility="{Binding SearchTypeRegexVisible, Converter={StaticResource BoolToVisibilityConverter}}"/>
+                                <CheckBox Margin="3,1"
                                           IsChecked="{Binding BooleanOperators}"
                                           IsEnabled="{Binding IsBooleanOperatorsEnabled}"
                                           TabIndex="74" Content="{l:Loc Key='Main_BooleanOperators'}" 
-                                          ToolTip="{l:Loc Key='Main_CombineMultipleSearchPatternsUsingANDOrOR'}"/>
-                                <CheckBox Margin="3"
+                                          ToolTip="{l:Loc Key='Main_CombineMultipleSearchPatternsUsingANDOrOR'}"
+                                          Visibility="{Binding BooleanOperatorsVisible, Converter={StaticResource BoolToVisibilityConverter}}"/>
+                                <CheckBox Margin="3,1"
                                           IsChecked="{Binding CaptureGroupSearch}"
                                           IsEnabled="{Binding Path=TypeOfFileSearch, Converter={StaticResource ebc}, ConverterParameter=Regex}"
                                           TabIndex="75" Content="{l:Loc Key='Main_CaptureGroupSearch'}" 
-                                          ToolTip="{l:Loc Key='Main_UseCaptureGroupsFromPathsToMatch'}"/>
+                                          ToolTip="{l:Loc Key='Main_UseCaptureGroupsFromPathsToMatch'}"
+                                          Visibility="{Binding CaptureGroupSearchVisible, Converter={StaticResource BoolToVisibilityConverter}}"/>
                             </WrapPanel>
                         </StackPanel>
                         <Grid>
                             <Grid.RowDefinitions>
                                 <RowDefinition Height="*" />
-                                <RowDefinition Height="5" />
                                 <RowDefinition Height="*" />
                             </Grid.RowDefinitions>
                             <Grid.ColumnDefinitions>
                                 <ColumnDefinition Width="Auto" />
                                 <ColumnDefinition />
                             </Grid.ColumnDefinitions>
-                            <Label Grid.Row="0" Grid.Column="0" Margin="3,3,3,3"
+                            <Label Grid.Row="0" Grid.Column="0" Margin="3,0"
                                    Content="{l:Loc Key='Main_SearchFor'}"
                                    Style="{DynamicResource ThemedLabel}"
                                    Target="{Binding ElementName=tbSearchFor}"/>
                             <my:MultilineComboBox x:Name="tbSearchFor" Grid.Row="0" Grid.Column="1"
-                                      Margin="3,0,3,1" Padding="5"
+                                      Margin="3,0,3,3" Padding="0"
                                       my:DiginesisHelpProvider.HelpKeyword="Regular-Expressions"
                                       my:DiginesisHelpProvider.HelpNavigator="Topic"
                                       my:DiginesisHelpProvider.ShowHelp="True"
                                       Text="{Binding SearchFor}"
-                                      IsEditable="True"
                                       ItemsSource="{Binding FastSearchBookmarks}"
+                                      TextSearch.TextPath="StringValue"
+                                      ItemTemplate="{StaticResource comboBoxPinDelTemplate}"
                                       Style="{DynamicResource MultilineComboBoxStyle}"
+                                      IsEditable="True"
+                                      Grid.IsSharedSizeScope="True"
                                       IsTextSearchCaseSensitive="True" 
-                                      FontFamily="Consolas" FontSize="{Binding MainFormFontSize}"
+                                      FontFamily="{Binding ResultsFontFamily}" FontSize="{Binding ResultsFontSize}"
                                       TabIndex="60">
+                                <ComboBox.ItemContainerStyle>
+                                    <Style TargetType="ComboBoxItem">
+                                        <Setter Property="HorizontalContentAlignment" Value="Stretch" />
+                                    </Style>
+                                </ComboBox.ItemContainerStyle>
                                 <ComboBox.ToolTip>
-                                    <TextBlock>
-                                    <Run Text="{l:Loc Key='TTA1_MatchesAllCharacters'}"/>
-                                    <LineBreak />
-                                    <Run Text="{l:Loc Key='TTA2_MatchesAlphaNumerics'}"/>
-                                    <LineBreak />
-                                    <Run Text="{l:Loc Key='TTA3_MatchesDigits'}"/>
-                                    <LineBreak />
-                                    <Run Text="{l:Loc Key='TTA4_MatchesSpace'}"/>
-                                    <LineBreak />
-                                    <Run Text="{l:Loc Key='TTA5_MatchesAnyNumberOfCharacters'}"/>
-                                    <LineBreak />
-                                    <Run Text="{l:Loc Key='TTA6_Matches1To3Characters'}"/>
-                                    <LineBreak />
-                                    <Run Text="{l:Loc Key='TTA7_ForMoreRegexPatternsHitF1'}"/>
-                                    </TextBlock>
+                                    <ToolTip Visibility="{Binding SearchToolTipVisible, Converter={StaticResource BoolToHiddenVisibilityConverter}}">
+                                        <TextBlock Text="{Binding SearchToolTip}"/>
+                                    </ToolTip>
                                 </ComboBox.ToolTip>
                             </my:MultilineComboBox>
-                            <Label Grid.Row="2" Grid.Column="0" Margin="3,3,3,4"
+                            <Label Grid.Row="1" Grid.Column="0" Margin="3,0"
                                    Content="{l:Loc Key='Main_ReplaceWith'}" 
                                    Style="{DynamicResource ThemedLabel}"
-                                   Target="{Binding ElementName=tbReplaceWith}"/>
-                            <my:MultilineComboBox x:Name="tbReplaceWith" Grid.Row="2" Grid.Column="1"
-                                      Margin="3,1,3,0" Padding="5"
+                                   Target="{Binding ElementName=tbReplaceWith}"
+                                   Visibility="{Binding ReplaceVisible, Converter={StaticResource BoolToVisibilityConverter}}"/>
+                            <my:MultilineComboBox x:Name="tbReplaceWith" Grid.Row="1" Grid.Column="1"
+                                      Margin="3,3,3,0" Padding="0"
                                       Text="{Binding ReplaceWith}"
                                       IsEditable="True"
                                       ItemsSource="{Binding FastReplaceBookmarks}"
+                                      TextSearch.TextPath="StringValue"
+                                      ItemTemplate="{StaticResource comboBoxPinDelTemplate}"
                                       Style="{DynamicResource MultilineComboBoxStyle}"
+                                      Grid.IsSharedSizeScope="True"
                                       IsTextSearchCaseSensitive="True" 
-                                      FontFamily="Consolas" FontSize="{Binding MainFormFontSize}"
-                                      TabIndex="61">
+                                      FontFamily="{Binding ResultsFontFamily}" FontSize="{Binding ResultsFontSize}"
+                                      TabIndex="61"
+                                      Visibility="{Binding ReplaceVisible, Converter={StaticResource BoolToVisibilityConverter}}">
+                                <ComboBox.ItemContainerStyle>
+                                    <Style TargetType="ComboBoxItem">
+                                        <Setter Property="HorizontalContentAlignment" Value="Stretch" />
+                                    </Style>
+                                </ComboBox.ItemContainerStyle>
                                 <ComboBox.ToolTip>
-                                    <TextBlock>
-                                    <Run Text="{l:Loc Key='TTB1_ReplacesEntireRegex'}"/>
-                                    <LineBreak />
-                                    <Run Text="{l:Loc Key='TTB2_InsertsTheTextMatchedIntoTheReplacementText'}"/>
-                                    <LineBreak />
-                                    <Run Text="{l:Loc Key='TTB3_InsertsASingleDollarSignIntoTheReplacementText'}"/>
-                                    </TextBlock>
+                                    <ToolTip Visibility="{Binding ReplaceToolTipVisible, Converter={StaticResource BoolToHiddenVisibilityConverter}}">
+                                        <TextBlock Text="{Binding ReplaceToolTip}"/> 
+                                    </ToolTip>
                                 </ComboBox.ToolTip>
                             </my:MultilineComboBox>
                         </Grid>
@@ -768,31 +983,48 @@
                 </GroupBox>
                 <Grid DockPanel.Dock="Top">
                     <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="Auto"/>
                         <ColumnDefinition />
                     </Grid.ColumnDefinitions>
-                    <WrapPanel Grid.Column="0" HorizontalAlignment="Right" Orientation="Horizontal">
+                    <CheckBox Grid.Column="0" Margin="3,0,10,0" 
+                              Background="{DynamicResource Control.Static.Background}"
+                              ToolTip="{Binding MaximizeResultsTreeButtonTooltip}"
+                              Template="{DynamicResource ExpanderButtonTemplate}"
+                              IsChecked="{Binding IsResultTreeMaximized}"/>
+                    <WrapPanel Grid.Column="1" HorizontalAlignment="Right" Orientation="Horizontal">
                         <CheckBox Margin="3,0" Content="{l:Loc Key='Main_SearchInResults'}"
                                   IsChecked="{Binding SearchInResultsContent}"
-                                  Visibility="{Binding CanSearchInResults, Converter={StaticResource BoolToVisibilityConverter}}"
+                                  Visibility="{Binding CompositeSearchInResultsVisible, Converter={StaticResource BoolToVisibilityConverter}}"
                                   TabIndex="80" />
                         <CheckBox x:Name="chkPreview" Margin="3,0" Content="{l:Loc Key='Main_PreviewFile'}"
                                   IsChecked="{Binding PreviewFileContent}"
-                                  TabIndex="81" />
+                                  TabIndex="81" 
+                                  Visibility="{Binding PreviewFileVisible, Converter={StaticResource BoolToVisibilityConverter}}"/>
                         <CheckBox Margin="3,0" Content="{l:Loc Key='Main_StopAfterFirstMatch'}"
                                   IsChecked="{Binding StopAfterFirstMatch}"
-                                  TabIndex="82" />
+                                  TabIndex="82" 
+                                  Visibility="{Binding StopAfterFirstMatchVisible, Converter={StaticResource BoolToVisibilityConverter}}"/>
                         <Button Margin="3" Padding="8,3"
                                 Content="{l:Loc Key='Main_SearchButton'}" IsDefault="True"
                                 Command="{Binding SearchCommand}"
                                 TabIndex="83" />
                         <Button Margin="3" Padding="8,3"
                                 Content="{l:Loc Key='Main_ReplaceButton'}"
+                                ToolTipService.ShowOnDisabled="True"
                                 Command="{Binding ReplaceCommand}"
-                                TabIndex="84" />
+                                TabIndex="84" 
+                                Visibility="{Binding ReplaceVisible, Converter={StaticResource BoolToVisibilityConverter}}">
+                            <Button.ToolTip>
+                                <ToolTip Visibility="{Binding ReplaceButtonToolTipVisible, Converter={StaticResource BoolToHiddenVisibilityConverter}}">
+                                    <TextBlock Text="{Binding ReplaceButtonToolTip}"/>
+                                </ToolTip>
+                            </Button.ToolTip>
+                        </Button>
                         <my:SplitButton Margin="3" Padding="8,3"
                                 Content="{l:Loc Key='Main_SortButton'}"
                                 Command="{Binding SortCommand}"
-                                TabIndex="85">
+                                TabIndex="85"
+                                Visibility="{Binding SortVisible, Converter={StaticResource BoolToVisibilityConverter}}">
                             <my:SplitButton.ContextMenu>
                                 <ContextMenu>
                                     <my:RadioMenuItem Header="{l:Loc Key='Main_SortMenu_PathAndFileNameDepthFirst'}"
@@ -827,11 +1059,21 @@
                             </my:SplitButton.ContextMenu>
                         </my:SplitButton>
                         <Button Margin="3" Padding="8,3"
-                                Content="{l:Loc Key='Main_MoreArrowButton'}"
                                 Click="ButtonOtherActions_Click"
                                 ContextMenuService.Placement="Bottom"
                                 IsEnabled="{Binding CanSearchInResults}"
-                                TabIndex="86">
+                                TabIndex="86"
+                                Visibility="{Binding MoreVisible, Converter={StaticResource BoolToVisibilityConverter}}">
+                            <Button.ContentTemplate >
+                                <DataTemplate>
+                                    <StackPanel Orientation="Horizontal">
+                                        <AccessText Text="{l:Loc Key='Main_MoreArrowButton'}"/>
+                                        <TextBlock Margin="3,0,0,0"
+                                                   Text="{Binding Path=DataContext.DropDownArrowCharacter, RelativeSource={RelativeSource Mode=FindAncestor, AncestorType={x:Type Window}}, FallbackValue='⏷'}"
+                                                   FontFamily="{Binding Path=DataContext.DropDownFontFamily, RelativeSource={RelativeSource Mode=FindAncestor, AncestorType={x:Type Window}}}"/>
+                                    </StackPanel>
+                                </DataTemplate>
+                            </Button.ContentTemplate>
                             <Button.ContextMenu>
                                 <ContextMenu x:Name="advanceContextMenu">
                                     <MenuItem Header="{l:Loc Key='Main_MoreMenu_CopyFiles'}" Command="{Binding CopyFilesCommand}" />
@@ -839,22 +1081,28 @@
                                     <MenuItem Header="{l:Loc Key='Main_MoreMenu_DeleteFiles'}" Command="{Binding DeleteFilesCommand}" />
                                     <Separator />
                                     <MenuItem Header="{l:Loc Key='Main_MoreMenu_CopyFileNames'}" Command="{Binding CopyToClipboardCommand}" />
+                                    <Separator />
                                     <MenuItem Header="{l:Loc Key='Main_MoreMenu_CopyResults'}" Command="{Binding CopyMatchingLinesCommand}" />
                                     <MenuItem Header="{l:Loc Key='Main_MoreMenu_SaveResults'}">
                                         <MenuItem Header="{l:Loc Key='Main_MoreMenu_Save_Report'}" Command="{Binding SaveResultsCommand}" CommandParameter="Report" />
                                         <MenuItem Header="{l:Loc Key='Main_MoreMenu_Save_TextResults'}" Command="{Binding SaveResultsCommand}" CommandParameter="Text" />
                                         <MenuItem Header="{l:Loc Key='Main_MoreMenu_Save_CSVResults'}" Command="{Binding SaveResultsCommand}" CommandParameter="CSV" />
                                     </MenuItem>
+                                    <MenuItem Header="{l:Loc Key='Main_MoreMenu_Report_Options'}" Command="{Binding ReportOptions}" />
                                 </ContextMenu>
                             </Button.ContextMenu>
                         </Button>
+                        <Button Margin="3" Padding="8,3" 
+                                Content="{Binding PauseResumeButtonLabel, FallbackValue='Pause'}"
+                                Command="{Binding PauseResumeCommand}"
+                                TabIndex="87" />
                         <Button Margin="3,3,8,3" Padding="8,3"
                                 Content="{l:Loc Key='Main_CancelButton'}"
                                 Command="{Binding CancelCommand}"
-                                TabIndex="87" />
+                                TabIndex="88" />
                     </WrapPanel>
                 </Grid>
-                <uc:ResultsTree x:Name="resultsTree" DataContext="{Binding SearchResults}" TabIndex="90" />
+                <uc:ResultsTree x:Name="resultsTree" DataContext="{Binding ResultsViewModel}" TabIndex="90" />
             </DockPanel>
         </DockPanel>
     </DockPanel>

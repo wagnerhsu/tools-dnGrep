@@ -46,7 +46,7 @@
             <Border Grid.Row="0" Grid.RowSpan="4" Grid.Column="0"
                 Margin="8" Background="#80ffffff" CornerRadius="12">
                 <Image Width="72" Height="72" Margin="8"
-                   Source="/dnGREP;component/Images/dnGrep80.png" />
+                   Source="/dnGREP;component/Images/dnGrep96.png" />
             </Border>
 
             <StackPanel Grid.Row="0" Grid.Column="1"  Orientation="Horizontal">
@@ -60,9 +60,19 @@
                 </TextBlock>
             </StackPanel>
 
-            <TextBlock Grid.Row="1" Grid.Column="1"
-                   Text="{Binding Version, FallbackValue='Version'}"
-                   Style="{StaticResource ThemedTextBlock}" />
+            <StackPanel Grid.Row="1" Grid.Column="1" Orientation="Horizontal">
+                <TextBlock Grid.Row="1" Grid.Column="1"
+                       Text="{Binding Version, FallbackValue='Version'}"
+                       Style="{StaticResource ThemedTextBlock}" />
+                <Border Margin="16,0,0,0" Padding="0" Height="20" Width="20" 
+                        Background="#B0ffffff" CornerRadius="2">
+                    <Button Command="{Binding CopyVersionCommand}"
+                            Background="Transparent" BorderBrush="Transparent">
+                        <Image Source="/dnGREP;component/Images/copy.png" Stretch="Uniform"/>
+                    </Button>
+                </Border>
+                    
+            </StackPanel>
             <TextBlock Grid.Row="2" Grid.Column="1"
                    Text="{Binding BuildDate, FallbackValue='Build date'}"
                    Style="{StaticResource ThemedTextBlock}" />
@@ -156,12 +166,6 @@
                         <TextBlock Text="UtfKnown"/>
                     </Hyperlink>
                     <TextBlock Text="{l:Loc Key='About_NETLibraryForCharacterSetDetection'}" Style="{StaticResource Decription}"/>
-                </TextBlock>
-                <TextBlock Grid.Row="8" Grid.Column="1" Style="{StaticResource ThemedTextBlock}">
-                    <Hyperlink NavigateUri="https://github.com/micdenny/WpfScreenHelper" RequestNavigate="Hyperlink_RequestNavigate">
-                        <TextBlock Text="WpfScreenHelper"/>
-                    </Hyperlink>
-                    <TextBlock Text="{l:Loc Key='About_NETWPFScreenHelperUtility'}" Style="{StaticResource Decription}"/>
                 </TextBlock>
                 <TextBlock Grid.Row="9" Grid.Column="1" Style="{StaticResource ThemedTextBlock}">
                     <Hyperlink NavigateUri="https://github.com/OfficeDev/Open-XML-SDK" RequestNavigate="Hyperlink_RequestNavigate">

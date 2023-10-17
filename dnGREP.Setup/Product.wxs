@@ -3,7 +3,7 @@
   <!-- Adding variable -->
   <?include Variables.wxi ?>
   <Product Id="*"
-           Name="dnGREP $(var.MajorVersion).$(var.MinorVersion).$(var.BuildVersion) ($(var.Platform))"
+           Name="dnGrep $(var.MajorVersion).$(var.MinorVersion).$(var.BuildVersion) ($(var.Platform))"
            Language="1033"
            Version="$(var.ProductVersion)"
            Manufacturer="dnGrep Community Contributors"
@@ -33,8 +33,12 @@
     <!-- ========================== UI =============================-->
     <Property Id="WIXUI_INSTALLDIR" Value="INSTALLDIR" />
     <Property Id="INSTALL_MODE" Value="Custom" />
-    <UIRef Id="WixUI_Mondo" />
-    <UIRef Id="WixUI_ErrorProgressText" />
+    <Property Id="LAUNCHAPPONEXIT" Value="1" />
+    <UI>
+      <UIRef Id="MyWixUI_Mondo" />
+      <UIRef Id="WixUI_ErrorProgressText" />
+      <Publish Dialog="MyExitDialog" Control="Finish" Order="1" Event="DoAction" Value="LaunchApplication">LAUNCHAPPONEXIT</Publish>
+    </UI>
     <WixVariable Id="WixUILicenseRtf" Value="license.rtf" />
     <WixVariable Id="WixUIBannerBmp" Value="header.bmp" />
     <WixVariable Id="WixUIDialogBmp" Value="intro.bmp" />
@@ -42,8 +46,14 @@
 
     <!-- ================== Custom Actions =========================-->
     <!-- Call DCAS Installer -->
-    <CustomAction Id="PreventDowngrading" Error="Newer version of dnGREP is already installed." />
-    <CustomAction Id="PreventReInstalling" Error="dnGREP version $(var.ProductVersion) is already installed." />
+    <CustomAction Id="PreventDowngrading" Error="Newer version of dnGrep is already installed." />
+    <CustomAction Id="PreventReInstalling" Error="dnGrep version $(var.ProductVersion) is already installed." />
+    <CustomAction Id="LaunchApplication" 
+                  Directory="INSTALLDIR" 
+                  Execute="immediate" 
+                  Impersonate="yes"
+                  Return="asyncNoWait"
+                  ExeCommand="&quot;[INSTALLDIR]dnGREP.exe&quot;" />
     <!-- ===========================================================-->
 
     <Upgrade Id="4CF55558-B642-482E-9FBF-06EA5AEC8276">
@@ -60,13 +70,13 @@
 
     <Directory Id="TARGETDIR" Name="SourceDir">
       <Directory Id="$(var.PlatformProgramFilesFolder)">
-        <Directory Id="INSTALLDIR" Name="dnGREP">
+        <Directory Id="INSTALLDIR" Name="dnGrep">
           <Directory Id="PluginsDir" Name="Plugins">
           </Directory>
         </Directory>
       </Directory>
       <Directory Id="ProgramMenuFolder">
-        <Directory  Id="ApplicationProgramsFolder" Name="dnGREP"/>
+        <Directory  Id="ApplicationProgramsFolder" Name="dnGrep"/>
       </Directory>
     </Directory>
 
@@ -75,28 +85,28 @@
       <Component Id="ShellIntegration" Guid="8B727769-A7FF-49D9-B685-8DBDA51F81F7">
         <RegistryKey Root="HKCR" Key="Directory\shell\dnGREP" >
           <RegistryValue Name="Icon" Type="expandable" Value="[INSTALLDIR]dnGREP.exe"/>
-          <RegistryValue Type="string" Value="dnGREP..."/>
+          <RegistryValue Type="string" Value="dnGrep..."/>
         </RegistryKey>
         <RegistryKey Root="HKCR" Key="Directory\shell\dnGREP\command" >
           <RegistryValue Type="expandable" Value="&quot;[INSTALLDIR]dnGREP.exe&quot; &quot;%1&quot;"/>
         </RegistryKey>
         <RegistryKey Root="HKCR" Key="Drive\shell\dnGREP" >
           <RegistryValue Name="Icon" Type="expandable" Value="[INSTALLDIR]dnGREP.exe"/>
-          <RegistryValue Type="string" Value="dnGREP..."/>
+          <RegistryValue Type="string" Value="dnGrep..."/>
         </RegistryKey>
         <RegistryKey Root="HKCR" Key="Drive\shell\dnGREP\command" >
           <RegistryValue Type="expandable" Value="&quot;[INSTALLDIR]dnGREP.exe&quot; &quot;%1&quot;"/>
         </RegistryKey>
         <RegistryKey Root="HKCR" Key="*\shell\dnGREP" >
           <RegistryValue Name="Icon" Type="expandable" Value="[INSTALLDIR]dnGREP.exe"/>
-          <RegistryValue Type="string" Value="dnGREP..."/>
+          <RegistryValue Type="string" Value="dnGrep..."/>
         </RegistryKey>
         <RegistryKey Root="HKCR" Key="*\shell\dnGREP\command" >
           <RegistryValue Type="expandable" Value="&quot;[INSTALLDIR]dnGREP.exe&quot; &quot;%1&quot;"/>
         </RegistryKey>
         <RegistryKey Root="HKLM" Key="SOFTWARE\Classes\Directory\Background\shell\dnGREP" >
           <RegistryValue Name="Icon" Type="expandable" Value="[INSTALLDIR]dnGREP.exe"/>
-          <RegistryValue Type="string" Value="dnGREP..."/>
+          <RegistryValue Type="string" Value="dnGrep..."/>
         </RegistryKey>
         <RegistryKey Root="HKLM" Key="SOFTWARE\Classes\Directory\Background\shell\dnGREP\command" >
           <RegistryValue Type="expandable" Value="&quot;[INSTALLDIR]dnGREP.exe&quot; &quot;%V&quot;"/>
@@ -109,13 +119,13 @@
     <DirectoryRef Id="ApplicationProgramsFolder">
       <Component  Id="ApplicationShortcut" Guid="78E286ED-5A4A-4F17-AF9E-79DBD8172998">
         <Shortcut Id="ApplicationStartMenuShortcut"
-                  Name="dnGREP"
-                  Description="dnGREP application"
+                  Name="dnGrep"
+                  Description="dnGrep application"
                   Target="[INSTALLDIR]dnGREP.exe"
                   WorkingDirectory="INSTALLDIR"/>
         <Shortcut Id="UninstallShortcut"
-                  Name="Uninstall dnGREP"
-                  Description="Uninstalls dnGREP"
+                  Name="Uninstall dnGrep"
+                  Description="Uninstalls dnGrep"
                   Target="[SystemFolder]msiexec.exe"
                   Arguments="/x [ProductCode]"/>
 
@@ -124,8 +134,9 @@
       </Component>
     </DirectoryRef>
 
-    <Feature Id="CoreFiles" Title="dnGREP" Display="expand" AllowAdvertise='no' Absent='disallow' Description="Core dnGREP application." Level="1" ConfigurableDirectory="INSTALLDIR">
+    <Feature Id="CoreFiles" Title="dnGrep" Display="expand" AllowAdvertise='no' Absent='disallow' Description="Core dnGrep application." Level="1" ConfigurableDirectory="INSTALLDIR">
       <ComponentGroupRef Id="dnGREPAppFiles"/>
+      <ComponentGroupRef Id="dotnet"/>
       <ComponentRef Id="ApplicationShortcut" />
       <Feature Id="ShellIntegration" Title="Windows Explorer menu" AllowAdvertise='no' Absent='allow' Description="Add dnGrep to Windows Explorer right-click menu." Level="2">
         <ComponentRef Id="ShellIntegration"/>
@@ -149,14 +160,8 @@
       <Custom Action="PreventDowngrading" After="FindRelatedProducts">NEWERFOUND</Custom>
       <Custom Action="PreventReInstalling" After="FindRelatedProducts">SELFFOUND</Custom>
       <RemoveExistingProducts After="InstallInitialize"/>
-      <Custom Action="NetFxExecuteNativeImageCommitInstall" After="NetFxExecuteNativeImageUninstall">0</Custom>
-      <Custom Action="NetFxExecuteNativeImageInstall" After="NetFxExecuteNativeImageCommitInstall" />
     </InstallExecuteSequence>
 
-    <UI>
-      <ProgressText Action="NetFxExecuteNativeImageInstall">Running ngen to optimize the application</ProgressText>
-    </UI>
-    
     <InstallUISequence>
       <Custom Action="PreventDowngrading" After="FindRelatedProducts">NEWERFOUND</Custom>
       <Custom Action="PreventReInstalling" After="FindRelatedProducts">SELFFOUND</Custom>

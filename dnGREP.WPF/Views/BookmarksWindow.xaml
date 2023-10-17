@@ -9,25 +9,34 @@
                  FlowDirection="{Binding CultureFlowDirection}"
                  FontFamily="{Binding ApplicationFontFamily}"
                  FontSize="{Binding DialogFontSize}"
-                 Width="860"
+                 Width="1000"
                  Height="440"
-                 MinWidth="520"
+                 MinWidth="640"
                  MinHeight="300"
                  Background="{DynamicResource Dialog.Background}"
                  CaptionBackground="{DynamicResource Caption.Dialog.Background}"
                  ResizeMode="CanResize"
                  ShowInTaskbar="True"
+                 KeyDown="Window_KeyDown"
                  Icon="/dnGREP;component/nGREP.ico"
                  mc:Ignorable="d">
 
     <Window.Resources>
         <my:TypeOfSearchValueConverter x:Key="tosConverter" />
-
+        <my:IntToImageValueConverter x:Key="imageConverter" />
+        
         <Style TargetType="Button" BasedOn="{StaticResource ThemedButton}">
             <Setter Property="Padding" Value="20,3" />
             <Setter Property="Margin" Value="3" />
         </Style>
     </Window.Resources>
+
+    <Window.InputBindings>
+        <KeyBinding Key="Up" Modifiers="Shift+Alt" Command="{Binding MoveToTopCommand}"/>
+        <KeyBinding Key="Up" Modifiers="Alt" Command="{Binding MoveUpCommand}"/>
+        <KeyBinding Key="Down" Modifiers="Alt" Command="{Binding MoveDownCommand}"/>
+        <KeyBinding Key="Down" Modifiers="Shift+Alt" Command="{Binding MoveToBottomCommand}"/>
+    </Window.InputBindings>
 
     <Grid Margin="8">
         <Grid.RowDefinitions>
@@ -41,7 +50,8 @@
             <TextBox Margin="3" Text="{Binding FilterText, UpdateSourceTrigger=PropertyChanged}" />
         </DockPanel>
 
-        <DataGrid Grid.Row="1" Margin="3"
+        <DataGrid x:Name="dataGrid"
+                  Grid.Row="1" Margin="3"
                   ItemsSource="{Binding Bookmarks}"
                   SelectedValue="{Binding SelectedBookmark}"
                   AutoGenerateColumns="False" SelectionMode="Single" SelectionUnit="FullRow"
@@ -54,9 +64,31 @@
 
 
             <DataGrid.Columns>
+                <DataGridTemplateColumn MinWidth="20" Header="{l:Loc Key='Bookmarks_SectionsHeader'}" IsReadOnly="True">
+                    <DataGridTemplateColumn.CellTemplate>
+                        <DataTemplate>
+                            <StackPanel Orientation="Horizontal">
+                                <Image Source="{Binding Path=SectionIndex, Converter={StaticResource imageConverter}}" 
+                                       Stretch="Uniform" Height="16" HorizontalAlignment="Center"/>
+                            </StackPanel>
+                        </DataTemplate>
+                    </DataGridTemplateColumn.CellTemplate>
+                </DataGridTemplateColumn>
+                <DataGridTextColumn MinWidth="120" Header="{l:Loc Key='Bookmarks_NameHeader'}" IsReadOnly="True"
+                                    Binding="{Binding BookmarkName}" />
+                <!--<DataGridTextColumn MinWidth="40" Header="Order" IsReadOnly="True"
+                                    Binding="{Binding Ordinal}" />-->
                 <DataGridTextColumn MinWidth="80" Header="{l:Loc Key='Bookmarks_TypeHeader'}" IsReadOnly="True"
-                                    Binding="{Binding TypeOfSearch, Converter={StaticResource tosConverter}}"
-                                    SortMemberPath="TypeOfSearch" />
+                                    SortMemberPath="TypeOfSearch">
+                    <DataGridTextColumn.Binding>
+                        <MultiBinding Converter="{StaticResource tosConverter}">
+                            <MultiBinding.Bindings>
+                                <Binding Path="TypeOfSearch"/>
+                                <Binding Path="ApplyContentSearchFilters"/>
+                            </MultiBinding.Bindings>
+                        </MultiBinding>
+                    </DataGridTextColumn.Binding>
+                </DataGridTextColumn>
                 <DataGridTextColumn MinWidth="120" Header="{l:Loc Key='Bookmarks_SearchForHeader'}" IsReadOnly="True"
                                     Binding="{Binding SearchFor}" />
                 <DataGridTextColumn MinWidth="120" Header="{l:Loc Key='Bookmarks_ReplaceWithHeader'}" IsReadOnly="True"
@@ -73,6 +105,14 @@
                     <EventSetter Event="PreviewMouseDoubleClick" Handler="DataGridRow_PreviewMouseDoubleClick" />
                 </Style>
             </DataGrid.RowStyle>
+            <DataGrid.ContextMenu>
+                <ContextMenu>
+                    <MenuItem Header="{l:Loc Key='Bookmarks_MoveToTop'}" Command="{Binding MoveToTopCommand}" InputGestureText="{l:Loc Key='Bookmarks_ShiftAltUpArrow'}"/>
+                    <MenuItem Header="{l:Loc Key='Bookmarks_MoveUp'}" Command="{Binding MoveUpCommand}" InputGestureText="{l:Loc Key='Bookmarks_AltUpArrow'}"/>
+                    <MenuItem Header="{l:Loc Key='Bookmarks_MoveDown'}" Command="{Binding MoveDownCommand}" InputGestureText="{l:Loc Key='Bookmarks_AltDownArrow'}"/>
+                    <MenuItem Header="{l:Loc Key='Bookmarks_MoveToBottom'}" Command="{Binding MoveToBottomCommand}" InputGestureText="{l:Loc Key='Bookmarks_ShiftAltDownArrow'}"/>
+                </ContextMenu>
+            </DataGrid.ContextMenu>
         </DataGrid>
 
         <DockPanel Grid.Row="2" LastChildFill="False" Grid.IsSharedSizeScope="True">
@@ -90,11 +130,16 @@
             </Grid>
             <Grid DockPanel.Dock="Right">
                 <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="Auto"/>
                     <ColumnDefinition SharedSizeGroup="A"/>
                     <ColumnDefinition SharedSizeGroup="A"/>
                 </Grid.ColumnDefinitions>
-                <Button Grid.Column="0" Content="{l:Loc Key='Bookmarks_Close'}" IsCancel="True" IsDefault="True" />
+                <ToggleButton Grid.Column="0" Margin="3,0"
+                              Height="{Binding ElementName=closeButton, Path=ActualHeight}"
+                              Style="{StaticResource ThemedPinButton}"
+                              IsChecked="{Binding IsPinned}" />
                 <Button Grid.Column="1" Content="{l:Loc Key='Bookmarks_Use'}" IsEnabled="{Binding HasSelection}" Click="UseButton_Click" />
+                <Button Grid.Column="2" Content="{l:Loc Key='Bookmarks_Close'}" IsDefault="True" x:Name="closeButton" Click="CloseButton_Click"/>
             </Grid>
         </DockPanel>
 

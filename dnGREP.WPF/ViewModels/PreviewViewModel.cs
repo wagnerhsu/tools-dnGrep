@@ -1,9 +1,12 @@
 ﻿using System;
+using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.ComponentModel;
+using System.IO;
 using System.Linq;
 using System.Text;
-using Alphaleonis.Win32.Filesystem;
+using System.Windows;
+using CommunityToolkit.Mvvm.ComponentModel;
 using dnGREP.Common;
 using dnGREP.Localization;
 using dnGREP.Localization.Properties;
@@ -12,9 +15,9 @@ using NLog;
 
 namespace dnGREP.WPF
 {
-    public class PreviewViewModel : CultureAwareViewModel, INotifyPropertyChanged
+    public partial class PreviewViewModel : CultureAwareViewModel
     {
-        private static Logger logger = LogManager.GetCurrentClassLogger();
+        private static readonly Logger logger = LogManager.GetCurrentClassLogger();
 
         public PreviewViewModel()
         {
@@ -24,13 +27,14 @@ namespace dnGREP.WPF
 
             ApplicationFontFamily = GrepSettings.Instance.Get<string>(GrepSettings.Key.ApplicationFontFamily);
             MainFormFontSize = GrepSettings.Instance.Get<double>(GrepSettings.Key.MainFormFontSize);
+            ResultsFontFamily = GrepSettings.Instance.Get<string>(GrepSettings.Key.ResultsFontFamily);
+            UpdatePersonalization(GrepSettings.Instance.Get<bool>(GrepSettings.Key.PersonalizationOn));
 
             PropertyChanged += PreviewViewModel_PropertyChanged;
 
             TranslationSource.Instance.CurrentCultureChanged += (s, e) =>
             {
-                bool resetCurrentSyntax = CurrentSyntax == Highlighters[0];
-                Highlighters[0] = Resources.Preview_SyntaxNone;
+                bool resetCurrentSyntax = CurrentSyntax == SyntaxItems[0].Header;
                 if (resetCurrentSyntax)
                 {
                     CurrentSyntax = Resources.Preview_SyntaxNone;
@@ -40,213 +44,138 @@ namespace dnGREP.WPF
 
         private void InitializeHighlighters()
         {
-            var items = ThemedHighlightingManager.Instance.HighlightingNames.ToList();
-            items.Sort();
-            items.Insert(0, Resources.Preview_SyntaxNone);
-            Highlighters.Clear();
-            foreach (var item in items)
+            var items = ThemedHighlightingManager.Instance.HighlightingNames;
+            var grouping = items.OrderBy(s => s)
+                .GroupBy(s => s[0])
+                .Select(g => new { g.Key, Items = g.ToArray() });
+
+            string noneItem = Resources.Preview_SyntaxNone;
+            SyntaxItems.Add(new MenuItemViewModel(noneItem, true,
+                new RelayCommand(p => CurrentSyntax = noneItem)));
+
+            foreach (var group in grouping)
             {
-                Highlighters.Add(item);
+                var parent = new MenuItemViewModel(group.Key.ToString(), null);
+                SyntaxItems.Add(parent);
+
+                foreach (var child in group.Items)
+                {
+                    parent.Children.Add(new MenuItemViewModel(child, true,
+                        new RelayCommand(p => CurrentSyntax = child)));
+                }
             }
 
             CurrentSyntax = Resources.Preview_SyntaxNone;
         }
 
-        public event EventHandler<ShowEventArgs> ShowPreview;
+        private void SelectCurrentSyntax(string syntaxName)
+        {
+            // creates a radio group for all the syntax context menu items
+            foreach (var item in SyntaxItems)
+            {
+                if (item.IsCheckable)
+                {
+                    item.IsChecked = item.Header.Equals(syntaxName, StringComparison.Ordinal);
+                }
 
+                foreach (var child in item.Children)
+                {
+                    child.IsChecked = child.Header.Equals(syntaxName, StringComparison.Ordinal);
+                }
+            }
+        }
+
+        public DockViewModel DockVM => DockViewModel.Instance;
+
+        public event EventHandler? ShowPreview;
+
+        public ObservableCollection<MenuItemViewModel> SyntaxItems { get; } = new();
+
+        public ObservableCollection<Marker> Markers { get; } = new();
+
+        public List<int> MarkerLineNumbers = new();
+
+        public Encoding Encoding { get; set; } = Encoding.UTF8;
+
+        public IHighlightingDefinition? HighlightingDefinition =>
+            ThemedHighlightingManager.Instance.GetDefinition(CurrentSyntax);
+
+        [ObservableProperty]
         private bool isLargeOrBinary;
-        public bool IsLargeOrBinary
-        {
-            get { return isLargeOrBinary; }
-            set
-            {
-                if (value == isLargeOrBinary)
-                    return;
 
-                isLargeOrBinary = value;
-
-                base.OnPropertyChanged(() => IsLargeOrBinary);
-            }
-        }
-
+        [ObservableProperty]
         private bool isPdf;
-        public bool IsPdf
+
+        [ObservableProperty]
+        private string currentSyntax = string.Empty;
+        partial void OnCurrentSyntaxChanged(string value)
         {
-            get { return isPdf; }
-            set
-            {
-                if (value == isPdf)
-                    return;
-
-                isPdf = value;
-
-                base.OnPropertyChanged(() => IsPdf);
-            }
+            SelectCurrentSyntax(value);
         }
 
-        private string currentSyntax;
-        public string CurrentSyntax
-        {
-            get { return currentSyntax; }
-            set
-            {
-                if (value == currentSyntax || value == null)
-                    return;
+        [ObservableProperty]
+        private string filePath = string.Empty;
 
-                currentSyntax = value;
+        [ObservableProperty]
+        private GrepSearchResult? grepResult;
 
-                base.OnPropertyChanged(() => CurrentSyntax);
-            }
-        }
-
-        public ObservableCollection<string> Highlighters { get; } = new ObservableCollection<string>();
-
-        public Encoding Encoding { get; set; }
-
-        private string displayFileName;
-        public string DisplayFileName
-        {
-            get { return displayFileName; }
-            set
-            {
-                if (value == displayFileName)
-                    return;
-
-                displayFileName = value;
-
-                base.OnPropertyChanged(() => DisplayFileName);
-            }
-        }
-
-        private string filePath;
-        public string FilePath
-        {
-            get { return filePath; }
-            set
-            {
-                if (value == filePath)
-                    return;
-
-                filePath = value;
-
-                base.OnPropertyChanged(() => FilePath);
-            }
-        }
-
-        private GrepSearchResult grepResult;
-        public GrepSearchResult GrepResult
-        {
-            get { return grepResult; }
-            set
-            {
-                if (value == grepResult)
-                    return;
-
-                grepResult = value;
-
-                base.OnPropertyChanged(() => GrepResult);
-            }
-        }
-
+        [ObservableProperty]
         private int lineNumber;
-        public int LineNumber
-        {
-            get { return lineNumber; }
-            set
-            {
-                if (value == lineNumber)
-                    return;
 
-                lineNumber = value;
-
-                base.OnPropertyChanged(() => LineNumber);
-            }
-        }
-
+        [ObservableProperty]
         private bool highlightsOn = true;
-        public bool HighlightsOn
-        {
-            get { return highlightsOn; }
-            set
-            {
-                if (value == highlightsOn)
-                    return;
 
-                highlightsOn = value;
-                base.OnPropertyChanged(() => HighlightsOn);
-            }
-        }
-
+        [ObservableProperty]
         private bool highlightDisabled;
-        public bool HighlightDisabled
+
+        [ObservableProperty]
+        private bool hasPageNumbers = false;
+
+        [ObservableProperty]
+        private string applicationFontFamily = SystemFonts.MessageFontFamily.Source;
+
+        [ObservableProperty]
+        private double mainFormFontSize;
+
+        [ObservableProperty]
+        private string resultsFontFamily = GrepSettings.DefaultMonospaceFontFamily;
+
+        [ObservableProperty]
+        private bool previewZoomWndVisible = true;
+
+        [ObservableProperty]
+        private bool wrapTextPreviewWndVisible = true;
+
+        [ObservableProperty]
+        private bool syntaxPreviewWndVisible = true;
+
+        void PreviewViewModel_PropertyChanged(object? sender, PropertyChangedEventArgs e)
         {
-            get { return highlightDisabled; }
-            set
+            if (!string.IsNullOrEmpty(e.PropertyName))
             {
-                if (value == highlightDisabled)
-                    return;
-
-                highlightDisabled = value;
-
-                base.OnPropertyChanged(() => HighlightDisabled);
+                UpdateState(e.PropertyName);
             }
-        }
-
-        public IHighlightingDefinition HighlightingDefinition
-        {
-            get
-            {
-                return ThemedHighlightingManager.Instance.GetDefinition(CurrentSyntax);
-            }
-        }
-
-        private string applicationFontFamily;
-        public string ApplicationFontFamily
-        {
-            get { return applicationFontFamily; }
-            set
-            {
-                if (applicationFontFamily == value)
-                    return;
-
-                applicationFontFamily = value;
-                base.OnPropertyChanged(() => ApplicationFontFamily);
-            }
-        }
-
-        private double mainFormfontSize;
-        public double MainFormFontSize
-        {
-            get { return mainFormfontSize; }
-            set
-            {
-                if (mainFormfontSize == value)
-                    return;
-
-                mainFormfontSize = value;
-                base.OnPropertyChanged(() => MainFormFontSize);
-            }
-        }
-
-        void PreviewViewModel_PropertyChanged(object sender, PropertyChangedEventArgs e)
-        {
-            UpdateState(e.PropertyName);
         }
 
         private void UpdateState(string name)
         {
+            if (name == nameof(GrepResult) && GrepResult != null)
+            {
+                MarkerLineNumbers = GrepResult.SearchResults.Where(sr => !sr.IsContext)
+                    .Select(sr => sr.LineNumber).Distinct().ToList();
+
+            }
+
             if (name == nameof(FilePath))
             {
-                if (!string.IsNullOrEmpty(filePath) &&
+                ClearPositionMarkers();
+                if (!string.IsNullOrEmpty(FilePath) &&
                     File.Exists(FilePath))
                 {
                     // Set current definition
                     var fileInfo = new FileInfo(FilePath);
                     var definition = ThemedHighlightingManager.Instance.GetDefinitionByExtension(fileInfo.Extension);
-                    if (definition != null)
-                        CurrentSyntax = definition.Name;
-                    else
-                        CurrentSyntax = Resources.Preview_SyntaxNone;
+                    CurrentSyntax = definition != null ? definition.Name : Resources.Preview_SyntaxNone;
 
                     try
                     {
@@ -264,32 +193,62 @@ namespace dnGREP.WPF
                     // Disable highlighting for large number of matches
                     HighlightDisabled = GrepResult?.Matches?.Count > 5000;
 
+                    HasPageNumbers = GrepResult?.SearchResults?.Any(sr => sr.PageNumber > -1) ?? false;
+
                     // Tell View to show window
-                    ShowPreview?.Invoke(this, new ShowEventArgs { ClearContent = true });
+                    ShowPreview?.Invoke(this, EventArgs.Empty);
                 }
                 else
                 {
                     // Tell View to show window and clear content
-                    ShowPreview?.Invoke(this, new ShowEventArgs { ClearContent = true });
+                    ShowPreview?.Invoke(this, EventArgs.Empty);
                 }
             }
 
-            if (name == nameof(LineNumber))
-            {
-                // Tell View to show window but not clear content
-                ShowPreview?.Invoke(this, new ShowEventArgs { ClearContent = false });
-            }
+        }
 
-            if (name == nameof(CurrentSyntax))
-            {
-                // Tell View to show window and clear content
-                ShowPreview?.Invoke(this, new ShowEventArgs { ClearContent = true });
-            }
+        internal void ClearPositionMarkers()
+        {
+            Markers.Clear();
+            OnPropertyChanged(nameof(Markers));
+        }
+
+        internal void BeginUpdateMarkers()
+        {
+            Markers.Clear();
+        }
+
+        internal void AddMarker(double linePosition, double documentHeight, double trackHeight, MarkerType markerType)
+        {
+            double position = (documentHeight < trackHeight) ? linePosition : linePosition * trackHeight / documentHeight;
+            Markers.Add(new Marker(position, markerType));
+        }
+
+        internal void EndUpdateMarkers()
+        {
+            OnPropertyChanged(nameof(Markers));
+        }
+
+        internal void UpdatePersonalization(bool personalizationOn)
+        {
+            PreviewZoomWndVisible = !personalizationOn || GrepSettings.Instance.Get<bool>(GrepSettings.Key.PreviewZoomWndVisible);
+            WrapTextPreviewWndVisible = !personalizationOn || GrepSettings.Instance.Get<bool>(GrepSettings.Key.WrapTextPreviewWndVisible);
+            SyntaxPreviewWndVisible = !personalizationOn || GrepSettings.Instance.Get<bool>(GrepSettings.Key.SyntaxPreviewWndVisible);
         }
     }
 
-    public class ShowEventArgs : EventArgs
+    public enum MarkerType { Global, Local }
+
+    public class Marker
     {
-        public bool ClearContent { get; set; }
+        public Marker(double position, MarkerType markerType)
+        {
+            Position = position;
+            MarkerType = markerType;
+        }
+
+        public double Position { get; private set; }
+        public MarkerType MarkerType { get; private set; }
     }
+
 }
